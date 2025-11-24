@@ -85,4 +85,19 @@ impl Terminal {
     pub fn grid(&self) -> Arc<Mutex<Grid>> {
         self.grid.clone()
     }
+
+    pub fn scroll_back_up(&mut self, lines: usize) {
+        let mut grid = self.grid.lock().unwrap();
+        grid.scroll_back_up(lines);
+    }
+
+    pub fn scroll_back_down(&mut self, lines: usize) {
+        let mut grid = self.grid.lock().unwrap();
+        grid.scroll_back_down(lines);
+    }
+
+    pub fn scroll_to_bottom(&mut self) {
+        let mut grid = self.grid.lock().unwrap();
+        grid.scroll_to_bottom();
+    }
 }

@@ -51,6 +51,10 @@ pub struct Grid {
     scroll_top: usize,
     scroll_bottom: usize,
     saved_cursor: (usize, usize),
+    // Scrollback buffer
+    scrollback: Vec<Vec<Cell>>,
+    max_scrollback: usize,
+    scroll_offset: usize, // 0 = at bottom (current), >0 = scrolled back
 }
 
 impl Grid {
@@ -67,6 +71,9 @@ impl Grid {
             scroll_top: 0,
             scroll_bottom: rows - 1,
             saved_cursor: (0, 0),
+            scrollback: Vec::new(),
+            max_scrollback: 10000, // Store up to 10000 lines
+            scroll_offset: 0,
         }
     }
 
@@ -170,6 +177,25 @@ impl Grid {
         let end_row = self.scroll_bottom + 1;
 
         for _ in 0..lines {
+            // Save the top line to scrollback before scrolling
+            if start_row == 0 {
+                let mut line = Vec::with_capacity(self.cols);
+                for x in 0..self.cols {
+                    let idx = start_row * self.cols + x;
+                    if idx < self.cells.len() {
+                        line.push(self.cells[idx].clone());
+                    }
+                }
+
+                // Add to scrollback
+                self.scrollback.push(line);
+
+                // Limit scrollback size
+                if self.scrollback.len() > self.max_scrollback {
+                    self.scrollback.remove(0);
+                }
+            }
+
             // Move rows up
             for y in start_row..(end_row - 1) {
                 for x in 0..self.cols {
@@ -190,6 +216,9 @@ impl Grid {
                 }
             }
         }
+
+        // Reset scroll offset when new content arrives
+        self.scroll_offset = 0;
     }
 
     pub fn set_style(&mut self, style: CellStyle) {
@@ -201,12 +230,27 @@ impl Grid {
     }
 
     pub fn get_cell(&self, x: usize, y: usize) -> Option<&Cell> {
-        if x < self.cols && y < self.rows {
-            let idx = y * self.cols + x;
-            self.cells.get(idx)
-        } else {
-            None
+        if x >= self.cols || y >= self.rows {
+            return None;
         }
+
+        // If scrolled back, get from scrollback buffer
+        if self.scroll_offset > 0 {
+            // Calculate which line in scrollback to show
+            let scrollback_line = self.scrollback.len().saturating_sub(self.scroll_offset) + y;
+
+            if scrollback_line < self.scrollback.len() {
+                // Get from scrollback
+                return self.scrollback[scrollback_line].get(x);
+            } else {
+                // This line is beyond scrollback, return empty
+                return None;
+            }
+        }
+
+        // Not scrolled back, get from current cells
+        let idx = y * self.cols + x;
+        self.cells.get(idx)
     }
 
     pub fn cursor_pos(&self) -> (usize, usize) {
@@ -232,5 +276,30 @@ impl Grid {
     pub fn set_scroll_region(&mut self, top: usize, bottom: usize) {
         self.scroll_top = top.min(self.rows - 1);
         self.scroll_bottom = bottom.min(self.rows - 1);
+    }
+
+    pub fn scroll_back_up(&mut self, lines: usize) {
+        let max_offset = self.scrollback.len();
+        self.scroll_offset = (self.scroll_offset + lines).min(max_offset);
+    }
+
+    pub fn scroll_back_down(&mut self, lines: usize) {
+        self.scroll_offset = self.scroll_offset.saturating_sub(lines);
+    }
+
+    pub fn scroll_to_bottom(&mut self) {
+        self.scroll_offset = 0;
+    }
+
+    pub fn is_at_bottom(&self) -> bool {
+        self.scroll_offset == 0
+    }
+
+    pub fn scrollback_len(&self) -> usize {
+        self.scrollback.len()
+    }
+
+    pub fn scroll_offset(&self) -> usize {
+        self.scroll_offset
     }
 }

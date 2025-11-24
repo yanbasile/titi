@@ -133,11 +133,63 @@ impl App {
                 // Ctrl+ArrowRight: Navigate to pane on right
                 self.pane_manager.navigate_right();
             }
+            Key::Named(NamedKey::PageUp) => {
+                // PageUp: Scroll back in history
+                if let Some(pane_id) = self.pane_manager.active_pane() {
+                    if let Some(pane) = self.pane_manager.get_pane_mut(pane_id) {
+                        // Scroll back by half a screen
+                        let (_, rows) = {
+                            let grid = pane.terminal.grid();
+                            let g = grid.lock().unwrap();
+                            g.size()
+                        };
+                        pane.terminal.scroll_back_up(rows / 2);
+                    }
+                }
+            }
+            Key::Named(NamedKey::PageDown) => {
+                // PageDown: Scroll forward in history
+                if let Some(pane_id) = self.pane_manager.active_pane() {
+                    if let Some(pane) = self.pane_manager.get_pane_mut(pane_id) {
+                        // Scroll forward by half a screen
+                        let (_, rows) = {
+                            let grid = pane.terminal.grid();
+                            let g = grid.lock().unwrap();
+                            g.size()
+                        };
+                        pane.terminal.scroll_back_down(rows / 2);
+                    }
+                }
+            }
+            Key::Named(NamedKey::Home) if self.modifiers.shift_key() => {
+                // Shift+Home: Scroll to top of history
+                if let Some(pane_id) = self.pane_manager.active_pane() {
+                    if let Some(pane) = self.pane_manager.get_pane_mut(pane_id) {
+                        let scrollback_len = {
+                            let grid = pane.terminal.grid();
+                            let g = grid.lock().unwrap();
+                            g.scrollback_len()
+                        };
+                        pane.terminal.scroll_back_up(scrollback_len);
+                    }
+                }
+            }
+            Key::Named(NamedKey::End) if self.modifiers.shift_key() => {
+                // Shift+End: Scroll to bottom (current)
+                if let Some(pane_id) = self.pane_manager.active_pane() {
+                    if let Some(pane) = self.pane_manager.get_pane_mut(pane_id) {
+                        pane.terminal.scroll_to_bottom();
+                    }
+                }
+            }
             _ => {
                 // Send input to active pane
                 if let Some(text) = self.key_to_bytes(&event) {
                     if let Some(pane_id) = self.pane_manager.active_pane() {
                         if let Some(pane) = self.pane_manager.get_pane_mut(pane_id) {
+                            // Scroll to bottom on any input
+                            pane.terminal.scroll_to_bottom();
+
                             if let Err(e) = pane.terminal.write(&text) {
                                 log::error!("Failed to write to terminal: {}", e);
                             }
