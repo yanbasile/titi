@@ -142,6 +142,7 @@ impl GlyphAtlas {
         // Create buffer with single character
         let metrics = Metrics::new(self.font_size, self.font_size * 1.2);
         let mut buffer = Buffer::new(&mut self.font_system, metrics);
+        buffer.set_size(&mut self.font_system, Some(self.font_size * 2.0), Some(self.font_size * 2.0));
 
         // Set text attributes for bold/italic
         let mut attrs = Attrs::new();
@@ -157,44 +158,85 @@ impl GlyphAtlas {
 
         buffer.shape_until_scroll(&mut self.font_system, false);
 
-        // Use fixed dimensions for monospace
-        // In a full implementation, we would use the actual glyph metrics
-        let width = (self.font_size * 0.6) as usize;
-        let height = (self.font_size * 1.2) as usize;
-        let advance = self.font_size * 0.6;
+        // Try to get the actual glyph from layout runs
+        let mut found_glyph = false;
+        let mut max_width = 0;
+        let mut max_height = 0;
+        let mut glyph_advance = self.font_size * 0.6;
+        let mut rasterized_data: Vec<u8> = Vec::new();
 
-        // Create bitmap
-        let mut bitmap = vec![0u8; width * height];
+        for run in buffer.layout_runs() {
+            for layout_glyph in run.glyphs.iter() {
+                found_glyph = true;
+                glyph_advance = layout_glyph.w;
 
-        // For now, use a simple rasterization approach
-        // In production, you would iterate through buffer.layout_runs()
-        // and use the glyph's physical_glyph to get the actual rendered bitmap
-        // from swash_cache
+                // Get physical glyph for rasterization
+                let physical = layout_glyph.physical((0.0, 0.0), 1.0);
 
-        // This is a simplified version that creates a visible pattern
-        // The full implementation would use:
-        // for run in buffer.layout_runs() {
-        //     for glyph in run.glyphs {
-        //         let cache_key = glyph.physical((0.0, 0.0), 1.0);
-        //         if let Some(image) = swash_cache.get_image(..., cache_key) {
-        //             // Copy image data to bitmap
-        //         }
-        //     }
-        // }
+                // Rasterize using swash cache
+                let image = self.swash_cache.get_image(&mut self.font_system, physical.cache_key);
 
-        // Simple placeholder: fill based on character
-        if !ch.is_whitespace() {
-            // Create a simple filled rectangle to represent the glyph
-            let margin_x = width / 8;
-            let margin_y = height / 8;
-            for y in margin_y..(height - margin_y) {
-                for x in margin_x..(width - margin_x) {
-                    bitmap[y * width + x] = 255;
+                if let Some(img) = image {
+                    max_width = img.placement.width as usize;
+                    max_height = img.placement.height as usize;
+
+                    // Convert cosmic_text image to our format (single-channel alpha)
+                    match img.content {
+                        cosmic_text::SwashContent::Mask => {
+                            // Already single-channel, copy directly
+                            rasterized_data = img.data.to_vec();
+                        }
+                        cosmic_text::SwashContent::Color => {
+                            // RGBA, extract alpha channel
+                            rasterized_data = img.data.chunks(4)
+                                .map(|chunk| chunk.get(3).copied().unwrap_or(0))
+                                .collect();
+                        }
+                        cosmic_text::SwashContent::SubpixelMask => {
+                            // RGB subpixel, average to single channel
+                            rasterized_data = img.data.chunks(3)
+                                .map(|chunk| {
+                                    if chunk.len() == 3 {
+                                        ((chunk[0] as u16 + chunk[1] as u16 + chunk[2] as u16) / 3) as u8
+                                    } else {
+                                        0
+                                    }
+                                })
+                                .collect();
+                        }
+                    }
                 }
+
+                // Only process first glyph
+                break;
+            }
+            if found_glyph {
+                break;
             }
         }
 
-        Some((bitmap, (width, height, advance)))
+        // If no glyph found or empty, use fallback dimensions
+        if !found_glyph || max_width == 0 || max_height == 0 {
+            let width = (self.font_size * 0.6) as usize;
+            let height = (self.font_size * 1.2) as usize;
+
+            let mut bitmap = vec![0u8; width * height];
+
+            // For visible characters without glyphs, show placeholder
+            if !ch.is_whitespace() {
+                let margin_x = width / 8;
+                let margin_y = height / 8;
+                for y in margin_y..(height - margin_y) {
+                    for x in margin_x..(width - margin_x) {
+                        bitmap[y * width + x] = 200;
+                    }
+                }
+            }
+
+            return Some((bitmap, (width, height, glyph_advance)));
+        }
+
+        Some((rasterized_data, (max_width, max_height, glyph_advance)))
     }
 
     pub fn texture(&self) -> &Texture {
