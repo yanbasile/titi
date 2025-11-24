@@ -69,7 +69,7 @@ fn test_grid_newline_moves_cursor_down() {
     let (x, y2) = grid.cursor_pos();
 
     assert_eq!(y2, y1 + 1);
-    assert_eq!(x, 1); // Cursor should stay at same x after newline in our implementation
+    assert_eq!(x, 0); // Newline resets cursor to column 0 (Unix terminal behavior)
 }
 
 #[test]

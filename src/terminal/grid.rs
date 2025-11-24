@@ -118,6 +118,8 @@ impl Grid {
             self.scroll_up(1);
             self.cursor_y = self.scroll_bottom;
         }
+        // In Unix terminals, newline typically includes carriage return
+        self.cursor_x = 0;
     }
 
     pub fn carriage_return(&mut self) {
@@ -192,6 +194,10 @@ impl Grid {
 
     pub fn set_style(&mut self, style: CellStyle) {
         self.current_style = style;
+    }
+
+    pub fn get_current_style(&self) -> CellStyle {
+        self.current_style
     }
 
     pub fn get_cell(&self, x: usize, y: usize) -> Option<&Cell> {

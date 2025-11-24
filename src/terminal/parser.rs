@@ -5,6 +5,7 @@ use vte::{Params, Perform};
 pub struct TerminalParser {
     grid: Arc<Mutex<Grid>>,
     performer: TerminalPerformer,
+    vte_parser: vte::Parser,  // Keep parser state across calls
 }
 
 impl TerminalParser {
@@ -12,13 +13,17 @@ impl TerminalParser {
         let performer = TerminalPerformer {
             grid: grid.clone(),
         };
-        Self { grid, performer }
+        Self {
+            grid,
+            performer,
+            vte_parser: vte::Parser::new(),
+        }
     }
 
     pub fn parse(&mut self, data: &[u8]) {
-        let mut parser = vte::Parser::new();
+        // Use the persistent parser to maintain state across calls
         for byte in data {
-            parser.advance(&mut self.performer, *byte);
+            self.vte_parser.advance(&mut self.performer, *byte);
         }
     }
 }
@@ -165,16 +170,10 @@ impl Perform for TerminalPerformer {
 
 impl TerminalPerformer {
     fn handle_sgr(&mut self, params: &Params) {
-        let grid = self.grid.lock().unwrap();
-        let (cols, rows) = grid.size();
-        drop(grid);
-
+        // Get current style from grid's internal state
         let mut current_style = {
             let grid = self.grid.lock().unwrap();
-            let (x, y) = grid.cursor_pos();
-            grid.get_cell(x.min(cols - 1), y.min(rows - 1))
-                .map(|c| c.style)
-                .unwrap_or_default()
+            grid.get_current_style()
         };
 
         let mut param_iter = params.iter();
