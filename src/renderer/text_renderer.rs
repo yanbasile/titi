@@ -1,8 +1,10 @@
-use super::GpuState;
+use super::{GpuState, glyph_atlas::GlyphAtlas};
 use crate::terminal::{Color, Grid};
+use crate::renderer::vertex::{Vertex, Uniforms};
 use crate::Config;
 use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, SwashCache};
 use std::sync::{Arc, Mutex};
+use wgpu::util::DeviceExt;
 
 pub struct TextRenderer {
     font_system: FontSystem,
@@ -10,10 +12,18 @@ pub struct TextRenderer {
     cell_width: f32,
     cell_height: f32,
     font_size: f32,
+    glyph_atlas: GlyphAtlas,
+    render_pipeline: wgpu::RenderPipeline,
+    uniform_buffer: wgpu::Buffer,
+    uniform_bind_group: wgpu::BindGroup,
+    texture_bind_group: wgpu::BindGroup,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    num_indices: u32,
 }
 
 impl TextRenderer {
-    pub fn new(_gpu_state: &GpuState, config: &Config) -> anyhow::Result<Self> {
+    pub fn new(gpu_state: &GpuState, config: &Config) -> anyhow::Result<Self> {
         let mut font_system = FontSystem::new();
         let swash_cache = SwashCache::new();
 
@@ -29,31 +39,362 @@ impl TextRenderer {
         let cell_width = font_size * 0.6; // Approximation for monospace
         let cell_height = font_size * 1.2;
 
+        // Create glyph atlas
+        let glyph_atlas = GlyphAtlas::new(&gpu_state.device, font_size);
+
+        // Create shader module
+        let shader = gpu_state
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("Text Shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("shaders/text.wgsl").into()),
+            });
+
+        // Create uniform buffer for transform matrix
+        let uniforms = Uniforms::ortho(gpu_state.size.width as f32, gpu_state.size.height as f32);
+        let uniform_buffer = gpu_state
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Uniform Buffer"),
+                contents: bytemuck::cast_slice(&[uniforms]),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+
+        // Create bind group layout for uniforms
+        let uniform_bind_group_layout =
+            gpu_state
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Uniform Bind Group Layout"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
+
+        // Create uniform bind group
+        let uniform_bind_group = gpu_state
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Uniform Bind Group"),
+                layout: &uniform_bind_group_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: uniform_buffer.as_entire_binding(),
+                }],
+            });
+
+        // Create texture bind group layout
+        let texture_bind_group_layout =
+            gpu_state
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Texture Bind Group Layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Texture {
+                                multisampled: false,
+                                view_dimension: wgpu::TextureViewDimension::D2,
+                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                            },
+                            count: None,
+                        },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 1,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                            count: None,
+                        },
+                    ],
+                });
+
+        // Create sampler for atlas texture
+        let sampler = gpu_state.device.create_sampler(&wgpu::SamplerDescriptor {
+            label: Some("Glyph Atlas Sampler"),
+            address_mode_u: wgpu::AddressMode::ClampToEdge,
+            address_mode_v: wgpu::AddressMode::ClampToEdge,
+            address_mode_w: wgpu::AddressMode::ClampToEdge,
+            mag_filter: wgpu::FilterMode::Linear,
+            min_filter: wgpu::FilterMode::Linear,
+            mipmap_filter: wgpu::FilterMode::Nearest,
+            ..Default::default()
+        });
+
+        // Create texture view for glyph atlas
+        let atlas_view = glyph_atlas
+            .texture()
+            .create_view(&wgpu::TextureViewDescriptor::default());
+
+        // Create texture bind group
+        let texture_bind_group = gpu_state
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Texture Bind Group"),
+                layout: &texture_bind_group_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: wgpu::BindingResource::TextureView(&atlas_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::Sampler(&sampler),
+                    },
+                ],
+            });
+
+        // Create render pipeline layout
+        let render_pipeline_layout =
+            gpu_state
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &[&uniform_bind_group_layout, &texture_bind_group_layout],
+                    push_constant_ranges: &[],
+                });
+
+        // Create render pipeline
+        let render_pipeline =
+            gpu_state
+                .device
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: Some("Text Render Pipeline"),
+                    layout: Some(&render_pipeline_layout),
+                    vertex: wgpu::VertexState {
+                        module: &shader,
+                        entry_point: Some("vs_main"),
+                        buffers: &[Vertex::desc()],
+                        compilation_options: Default::default(),
+                    },
+                    fragment: Some(wgpu::FragmentState {
+                        module: &shader,
+                        entry_point: Some("fs_main"),
+                        targets: &[Some(wgpu::ColorTargetState {
+                            format: gpu_state.config.format,
+                            blend: Some(wgpu::BlendState::ALPHA_BLENDING),
+                            write_mask: wgpu::ColorWrites::ALL,
+                        })],
+                        compilation_options: Default::default(),
+                    }),
+                    primitive: wgpu::PrimitiveState {
+                        topology: wgpu::PrimitiveTopology::TriangleList,
+                        strip_index_format: None,
+                        front_face: wgpu::FrontFace::Ccw,
+                        cull_mode: Some(wgpu::Face::Back),
+                        polygon_mode: wgpu::PolygonMode::Fill,
+                        unclipped_depth: false,
+                        conservative: false,
+                    },
+                    depth_stencil: None,
+                    multisample: wgpu::MultisampleState {
+                        count: 1,
+                        mask: !0,
+                        alpha_to_coverage_enabled: false,
+                    },
+                    multiview: None,
+                    cache: None,
+                });
+
+        // Create initial vertex and index buffers (will be resized as needed)
+        let max_vertices = 10000; // Initial capacity
+        let max_indices = 15000;
+
+        let vertex_buffer = gpu_state.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Vertex Buffer"),
+            size: (std::mem::size_of::<Vertex>() * max_vertices) as u64,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let index_buffer = gpu_state.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Index Buffer"),
+            size: (std::mem::size_of::<u32>() * max_indices) as u64,
+            usage: wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
         Ok(Self {
             font_system,
             swash_cache,
             cell_width,
             cell_height,
             font_size,
+            glyph_atlas,
+            render_pipeline,
+            uniform_buffer,
+            uniform_bind_group,
+            texture_bind_group,
+            vertex_buffer,
+            index_buffer,
+            num_indices: 0,
         })
     }
 
     pub fn render(
         &mut self,
-        _gpu_state: &GpuState,
-        _encoder: &mut wgpu::CommandEncoder,
-        _view: &wgpu::TextureView,
-        _grid: &Arc<Mutex<Grid>>,
+        gpu_state: &GpuState,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        grid: &Arc<Mutex<Grid>>,
     ) -> anyhow::Result<()> {
-        // For now, this is a placeholder
-        // In a full implementation, we would:
-        // 1. Create vertex buffers for each character
-        // 2. Rasterize glyphs using swash_cache
-        // 3. Upload glyph textures to GPU
-        // 4. Render quads with appropriate textures and colors
+        let grid = grid.lock().unwrap();
+        let (cols, rows) = grid.size();
 
-        // This would require implementing shaders and a proper rendering pipeline
-        // For the MVP, we're focusing on architecture
+        // Generate vertices and indices for all visible characters
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+
+        for row in 0..rows {
+            for col in 0..cols {
+                if let Some(cell) = grid.get_cell(col, row) {
+                    // Skip empty cells
+                    if cell.c == ' ' || cell.c == '\0' {
+                        continue;
+                    }
+
+                    // Get or cache the glyph
+                    let glyph_info = self.glyph_atlas.get_or_cache_glyph(
+                        &gpu_state.queue,
+                        cell.c,
+                        cell.style.bold,
+                        cell.style.italic,
+                    );
+
+                    if let Some(glyph) = glyph_info {
+                        // Calculate screen position
+                        let x = col as f32 * self.cell_width;
+                        let y = row as f32 * self.cell_height;
+
+                        // Convert colors to RGBA
+                        let fg_color = self.color_to_rgba_array(&cell.style.fg);
+                        let bg_color = self.color_to_rgba_array(&cell.style.bg);
+
+                        // Render background if not default
+                        if !matches!(cell.style.bg, Color::Default) {
+                            let base_vertex = vertices.len() as u32;
+
+                            // Background quad (no texture, just solid color)
+                            vertices.extend_from_slice(&[
+                                Vertex {
+                                    position: [x, y],
+                                    tex_coords: [0.0, 0.0],
+                                    color: bg_color,
+                                },
+                                Vertex {
+                                    position: [x + self.cell_width, y],
+                                    tex_coords: [0.0, 0.0],
+                                    color: bg_color,
+                                },
+                                Vertex {
+                                    position: [x + self.cell_width, y + self.cell_height],
+                                    tex_coords: [0.0, 0.0],
+                                    color: bg_color,
+                                },
+                                Vertex {
+                                    position: [x, y + self.cell_height],
+                                    tex_coords: [0.0, 0.0],
+                                    color: bg_color,
+                                },
+                            ]);
+
+                            indices.extend_from_slice(&[
+                                base_vertex, base_vertex + 1, base_vertex + 2,
+                                base_vertex, base_vertex + 2, base_vertex + 3,
+                            ]);
+                        }
+
+                        // Render foreground character
+                        let base_vertex = vertices.len() as u32;
+
+                        // Calculate glyph size in pixels
+                        let (atlas_width, atlas_height) = self.glyph_atlas.atlas_size();
+                        let glyph_width = glyph.width * atlas_width as f32;
+                        let glyph_height = glyph.height * atlas_height as f32;
+
+                        // Character quad with glyph texture
+                        vertices.extend_from_slice(&[
+                            Vertex {
+                                position: [x, y],
+                                tex_coords: [glyph.atlas_x, glyph.atlas_y],
+                                color: fg_color,
+                            },
+                            Vertex {
+                                position: [x + glyph_width, y],
+                                tex_coords: [glyph.atlas_x + glyph.width, glyph.atlas_y],
+                                color: fg_color,
+                            },
+                            Vertex {
+                                position: [x + glyph_width, y + glyph_height],
+                                tex_coords: [glyph.atlas_x + glyph.width, glyph.atlas_y + glyph.height],
+                                color: fg_color,
+                            },
+                            Vertex {
+                                position: [x, y + glyph_height],
+                                tex_coords: [glyph.atlas_x, glyph.atlas_y + glyph.height],
+                                color: fg_color,
+                            },
+                        ]);
+
+                        indices.extend_from_slice(&[
+                            base_vertex, base_vertex + 1, base_vertex + 2,
+                            base_vertex, base_vertex + 2, base_vertex + 3,
+                        ]);
+                    }
+                }
+            }
+        }
+
+        drop(grid);
+
+        // If no vertices to render, early return
+        if vertices.is_empty() {
+            return Ok(());
+        }
+
+        // Update vertex and index buffers
+        gpu_state.queue.write_buffer(
+            &self.vertex_buffer,
+            0,
+            bytemuck::cast_slice(&vertices),
+        );
+        gpu_state.queue.write_buffer(
+            &self.index_buffer,
+            0,
+            bytemuck::cast_slice(&indices),
+        );
+
+        self.num_indices = indices.len() as u32;
+
+        // Begin render pass
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Text Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load, // Load existing content (background cleared by main pass)
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
 
         Ok(())
     }
@@ -62,25 +403,25 @@ impl TextRenderer {
         (self.cell_width, self.cell_height)
     }
 
-    fn color_to_rgba(&self, color: &Color, config: &Config) -> [f32; 4] {
+    fn color_to_rgba_array(&self, color: &Color) -> [f32; 4] {
         match color {
-            Color::Black => config.colors.black,
-            Color::Red => config.colors.red,
-            Color::Green => config.colors.green,
-            Color::Yellow => config.colors.yellow,
-            Color::Blue => config.colors.blue,
-            Color::Magenta => config.colors.magenta,
-            Color::Cyan => config.colors.cyan,
-            Color::White => config.colors.white,
-            Color::BrightBlack => config.colors.bright_black,
-            Color::BrightRed => config.colors.bright_red,
-            Color::BrightGreen => config.colors.bright_green,
-            Color::BrightYellow => config.colors.bright_yellow,
-            Color::BrightBlue => config.colors.bright_blue,
-            Color::BrightMagenta => config.colors.bright_magenta,
-            Color::BrightCyan => config.colors.bright_cyan,
-            Color::BrightWhite => config.colors.bright_white,
-            Color::Default => config.colors.foreground,
+            Color::Black => [0.0, 0.0, 0.0, 1.0],
+            Color::Red => [0.8, 0.0, 0.0, 1.0],
+            Color::Green => [0.0, 0.8, 0.0, 1.0],
+            Color::Yellow => [0.8, 0.8, 0.0, 1.0],
+            Color::Blue => [0.0, 0.0, 0.8, 1.0],
+            Color::Magenta => [0.8, 0.0, 0.8, 1.0],
+            Color::Cyan => [0.0, 0.8, 0.8, 1.0],
+            Color::White => [0.8, 0.8, 0.8, 1.0],
+            Color::BrightBlack => [0.5, 0.5, 0.5, 1.0],
+            Color::BrightRed => [1.0, 0.0, 0.0, 1.0],
+            Color::BrightGreen => [0.0, 1.0, 0.0, 1.0],
+            Color::BrightYellow => [1.0, 1.0, 0.0, 1.0],
+            Color::BrightBlue => [0.0, 0.0, 1.0, 1.0],
+            Color::BrightMagenta => [1.0, 0.0, 1.0, 1.0],
+            Color::BrightCyan => [0.0, 1.0, 1.0, 1.0],
+            Color::BrightWhite => [1.0, 1.0, 1.0, 1.0],
+            Color::Default => [0.9, 0.9, 0.9, 1.0],
             Color::Rgb(r, g, b) => [
                 *r as f32 / 255.0,
                 *g as f32 / 255.0,

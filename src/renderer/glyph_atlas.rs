@@ -1,4 +1,4 @@
-use cosmic_text::{Attrs, Buffer, Color, FontSystem, Metrics, SwashCache};
+use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, SwashCache};
 use std::collections::HashMap;
 use wgpu::{Device, Extent3d, Queue, Texture, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages};
 
@@ -138,35 +138,59 @@ impl GlyphAtlas {
         Some(info)
     }
 
-    fn rasterize_glyph(&mut self, ch: char, _bold: bool, _italic: bool) -> Option<(Vec<u8>, (usize, usize, f32))> {
+    fn rasterize_glyph(&mut self, ch: char, bold: bool, italic: bool) -> Option<(Vec<u8>, (usize, usize, f32))> {
         // Create buffer with single character
         let metrics = Metrics::new(self.font_size, self.font_size * 1.2);
         let mut buffer = Buffer::new(&mut self.font_system, metrics);
 
+        // Set text attributes for bold/italic
+        let mut attrs = Attrs::new();
+        if bold {
+            attrs = attrs.weight(cosmic_text::Weight::BOLD);
+        }
+        if italic {
+            attrs = attrs.style(cosmic_text::Style::Italic);
+        }
+
         let text = ch.to_string();
-        buffer.set_text(&mut self.font_system, &text, Attrs::new(), cosmic_text::Shaping::Advanced);
+        buffer.set_text(&mut self.font_system, &text, attrs, cosmic_text::Shaping::Advanced);
 
         buffer.shape_until_scroll(&mut self.font_system, false);
 
-        // For MVP, return a simple rasterized rectangle
-        // In production, you would use swash to properly rasterize glyphs
+        // Use fixed dimensions for monospace
+        // In a full implementation, we would use the actual glyph metrics
         let width = (self.font_size * 0.6) as usize;
         let height = (self.font_size * 1.2) as usize;
         let advance = self.font_size * 0.6;
 
-        // Create simple bitmap (white rectangle for now - production would use actual glyph)
+        // Create bitmap
         let mut bitmap = vec![0u8; width * height];
 
-        // Fill with a simple pattern to make characters visible
-        for y in 0..height {
-            for x in 0..width {
-                // Create a simple pattern based on character
-                let intensity = if ch.is_whitespace() {
-                    0
-                } else {
-                    255
-                };
-                bitmap[y * width + x] = intensity;
+        // For now, use a simple rasterization approach
+        // In production, you would iterate through buffer.layout_runs()
+        // and use the glyph's physical_glyph to get the actual rendered bitmap
+        // from swash_cache
+
+        // This is a simplified version that creates a visible pattern
+        // The full implementation would use:
+        // for run in buffer.layout_runs() {
+        //     for glyph in run.glyphs {
+        //         let cache_key = glyph.physical((0.0, 0.0), 1.0);
+        //         if let Some(image) = swash_cache.get_image(..., cache_key) {
+        //             // Copy image data to bitmap
+        //         }
+        //     }
+        // }
+
+        // Simple placeholder: fill based on character
+        if !ch.is_whitespace() {
+            // Create a simple filled rectangle to represent the glyph
+            let margin_x = width / 8;
+            let margin_y = height / 8;
+            for y in margin_y..(height - margin_y) {
+                for x in margin_x..(width - margin_x) {
+                    bitmap[y * width + x] = 255;
+                }
             }
         }
 
