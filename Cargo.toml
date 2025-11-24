@@ -48,6 +48,10 @@ path = "tests/stress/performance.rs"
 name = "concurrency"
 path = "tests/stress/concurrency.rs"
 
+[[test]]
+name = "memory_leak_detection"
+path = "tests/stress/memory_leak_detection.rs"
+
 [profile.release]
 opt-level = 3
 lto = true
