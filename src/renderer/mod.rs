@@ -126,10 +126,13 @@ impl Renderer {
         let window_height = self.gpu_state.size.height as f32;
         let pane_bounds = pane_manager.layout().calculate_bounds(window_width, window_height);
 
-        // Render each pane
+        // Render each pane with borders
+        let active_pane = pane_manager.active_pane();
+
         for (pane_id, (x, y, width, height)) in pane_bounds.iter() {
             if let Some(pane) = pane_manager.get_pane(*pane_id) {
                 let grid = pane.terminal.grid();
+                let is_active = active_pane == Some(*pane_id);
 
                 // Render pane with viewport
                 self.text_renderer.render_with_viewport(
@@ -138,6 +141,15 @@ impl Renderer {
                     &view,
                     &grid,
                     (*x as u32, *y as u32, *width as u32, *height as u32),
+                )?;
+
+                // Render pane border
+                self.text_renderer.render_pane_border(
+                    &self.gpu_state,
+                    &mut encoder,
+                    &view,
+                    (*x as u32, *y as u32, *width as u32, *height as u32),
+                    is_active,
                 )?;
             }
         }

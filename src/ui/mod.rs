@@ -87,6 +87,95 @@ impl PaneManager {
     pub fn layout(&self) -> &Layout {
         &self.layout
     }
+
+    pub fn navigate_up(&mut self) {
+        if let Some(current_id) = self.active_pane {
+            if let Some(next_id) = self.find_pane_in_direction(current_id, NavigationDirection::Up) {
+                self.active_pane = Some(next_id);
+            }
+        }
+    }
+
+    pub fn navigate_down(&mut self) {
+        if let Some(current_id) = self.active_pane {
+            if let Some(next_id) = self.find_pane_in_direction(current_id, NavigationDirection::Down) {
+                self.active_pane = Some(next_id);
+            }
+        }
+    }
+
+    pub fn navigate_left(&mut self) {
+        if let Some(current_id) = self.active_pane {
+            if let Some(next_id) = self.find_pane_in_direction(current_id, NavigationDirection::Left) {
+                self.active_pane = Some(next_id);
+            }
+        }
+    }
+
+    pub fn navigate_right(&mut self) {
+        if let Some(current_id) = self.active_pane {
+            if let Some(next_id) = self.find_pane_in_direction(current_id, NavigationDirection::Right) {
+                self.active_pane = Some(next_id);
+            }
+        }
+    }
+
+    fn find_pane_in_direction(&self, current_id: PaneId, direction: NavigationDirection) -> Option<PaneId> {
+        // Calculate bounds for all panes (using a default size)
+        let bounds = self.layout.calculate_bounds(1000.0, 1000.0);
+
+        let current_bounds = bounds.get(&current_id)?;
+        let (curr_x, curr_y, curr_w, curr_h) = *current_bounds;
+
+        // Center of current pane
+        let curr_center_x = curr_x + curr_w / 2.0;
+        let curr_center_y = curr_y + curr_h / 2.0;
+
+        let mut best_pane: Option<PaneId> = None;
+        let mut best_distance = f32::MAX;
+
+        for (pane_id, bounds) in bounds.iter() {
+            if *pane_id == current_id {
+                continue;
+            }
+
+            let (x, y, w, h) = *bounds;
+            let center_x = x + w / 2.0;
+            let center_y = y + h / 2.0;
+
+            // Check if pane is in the correct direction
+            let is_valid = match direction {
+                NavigationDirection::Up => center_y < curr_center_y,
+                NavigationDirection::Down => center_y > curr_center_y,
+                NavigationDirection::Left => center_x < curr_center_x,
+                NavigationDirection::Right => center_x > curr_center_x,
+            };
+
+            if !is_valid {
+                continue;
+            }
+
+            // Calculate distance
+            let dx = center_x - curr_center_x;
+            let dy = center_y - curr_center_y;
+            let distance = dx * dx + dy * dy;
+
+            if distance < best_distance {
+                best_distance = distance;
+                best_pane = Some(*pane_id);
+            }
+        }
+
+        best_pane
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum NavigationDirection {
+    Up,
+    Down,
+    Left,
+    Right,
 }
 
 impl Default for PaneManager {

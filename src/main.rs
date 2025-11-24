@@ -71,6 +71,68 @@ impl App {
                     }
                 }
             }
+            Key::Character(c) if c == "h" && self.modifiers.control_key() => {
+                // Ctrl+H: Split horizontal
+                if let Some(pane_id) = self.pane_manager.active_pane() {
+                    if let Some(renderer) = &self.renderer {
+                        let (cell_width, cell_height) = renderer.cell_dimensions();
+                        let window_size = self.window.as_ref().unwrap().inner_size();
+                        let cols = (window_size.width as f32 / cell_width / 2.0) as u16;
+                        let rows = (window_size.height as f32 / cell_height) as u16;
+
+                        if let Err(e) = self.pane_manager.split_pane(
+                            pane_id,
+                            titi::ui::SplitDirection::Horizontal,
+                            cols.max(20),
+                            rows.max(5),
+                        ) {
+                            log::error!("Failed to split pane: {}", e);
+                        }
+                    }
+                }
+            }
+            Key::Character(c) if c == "v" && self.modifiers.control_key() => {
+                // Ctrl+V: Split vertical
+                if let Some(pane_id) = self.pane_manager.active_pane() {
+                    if let Some(renderer) = &self.renderer {
+                        let (cell_width, cell_height) = renderer.cell_dimensions();
+                        let window_size = self.window.as_ref().unwrap().inner_size();
+                        let cols = (window_size.width as f32 / cell_width) as u16;
+                        let rows = (window_size.height as f32 / cell_height / 2.0) as u16;
+
+                        if let Err(e) = self.pane_manager.split_pane(
+                            pane_id,
+                            titi::ui::SplitDirection::Vertical,
+                            cols.max(20),
+                            rows.max(5),
+                        ) {
+                            log::error!("Failed to split pane: {}", e);
+                        }
+                    }
+                }
+            }
+            Key::Character(c) if c == "w" && self.modifiers.control_key() => {
+                // Ctrl+W: Close active pane
+                if let Some(pane_id) = self.pane_manager.active_pane() {
+                    self.pane_manager.close_pane(pane_id);
+                }
+            }
+            Key::Named(NamedKey::ArrowUp) if self.modifiers.control_key() => {
+                // Ctrl+ArrowUp: Navigate to pane above
+                self.pane_manager.navigate_up();
+            }
+            Key::Named(NamedKey::ArrowDown) if self.modifiers.control_key() => {
+                // Ctrl+ArrowDown: Navigate to pane below
+                self.pane_manager.navigate_down();
+            }
+            Key::Named(NamedKey::ArrowLeft) if self.modifiers.control_key() => {
+                // Ctrl+ArrowLeft: Navigate to pane on left
+                self.pane_manager.navigate_left();
+            }
+            Key::Named(NamedKey::ArrowRight) if self.modifiers.control_key() => {
+                // Ctrl+ArrowRight: Navigate to pane on right
+                self.pane_manager.navigate_right();
+            }
             _ => {
                 // Send input to active pane
                 if let Some(text) = self.key_to_bytes(&event) {
@@ -199,15 +261,10 @@ impl ApplicationHandler for App {
                 // Poll terminals for output
                 self.poll_terminals();
 
-                // Render
+                // Render all panes
                 if let Some(renderer) = &mut self.renderer {
-                    if let Some(pane_id) = self.pane_manager.active_pane() {
-                        if let Some(pane) = self.pane_manager.get_pane(pane_id) {
-                            let grid = pane.terminal.grid();
-                            if let Err(e) = renderer.render(&grid) {
-                                log::error!("Render error: {}", e);
-                            }
-                        }
+                    if let Err(e) = renderer.render_panes(&self.pane_manager) {
+                        log::error!("Render error: {}", e);
                     }
                 }
 

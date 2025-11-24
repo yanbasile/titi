@@ -576,6 +576,191 @@ impl TextRenderer {
         Ok(())
     }
 
+    pub fn render_pane_border(
+        &mut self,
+        gpu_state: &GpuState,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        viewport: (u32, u32, u32, u32),
+        is_active: bool,
+    ) -> anyhow::Result<()> {
+        let (x, y, width, height) = viewport;
+
+        // Border color: bright for active pane, dim for inactive
+        let border_color = if is_active {
+            [0.0, 0.6, 0.8, 1.0] // Cyan blue for active
+        } else {
+            [0.2, 0.2, 0.2, 1.0] // Dark gray for inactive
+        };
+
+        // Border width in pixels
+        let border_width = if is_active { 2.0 } else { 1.0 };
+
+        let x = x as f32;
+        let y = y as f32;
+        let width = width as f32;
+        let height = height as f32;
+
+        // Create 4 rectangles for the border (top, right, bottom, left)
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+
+        // Top border
+        let base_vertex = vertices.len() as u32;
+        vertices.extend_from_slice(&[
+            Vertex {
+                position: [x, y],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x + width, y],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x + width, y + border_width],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x, y + border_width],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+        ]);
+        indices.extend_from_slice(&[
+            base_vertex, base_vertex + 1, base_vertex + 2,
+            base_vertex, base_vertex + 2, base_vertex + 3,
+        ]);
+
+        // Right border
+        let base_vertex = vertices.len() as u32;
+        vertices.extend_from_slice(&[
+            Vertex {
+                position: [x + width - border_width, y],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x + width, y],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x + width, y + height],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x + width - border_width, y + height],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+        ]);
+        indices.extend_from_slice(&[
+            base_vertex, base_vertex + 1, base_vertex + 2,
+            base_vertex, base_vertex + 2, base_vertex + 3,
+        ]);
+
+        // Bottom border
+        let base_vertex = vertices.len() as u32;
+        vertices.extend_from_slice(&[
+            Vertex {
+                position: [x, y + height - border_width],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x + width, y + height - border_width],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x + width, y + height],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x, y + height],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+        ]);
+        indices.extend_from_slice(&[
+            base_vertex, base_vertex + 1, base_vertex + 2,
+            base_vertex, base_vertex + 2, base_vertex + 3,
+        ]);
+
+        // Left border
+        let base_vertex = vertices.len() as u32;
+        vertices.extend_from_slice(&[
+            Vertex {
+                position: [x, y],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x + border_width, y],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x + border_width, y + height],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+            Vertex {
+                position: [x, y + height],
+                tex_coords: [0.0, 0.0],
+                color: border_color,
+            },
+        ]);
+        indices.extend_from_slice(&[
+            base_vertex, base_vertex + 1, base_vertex + 2,
+            base_vertex, base_vertex + 2, base_vertex + 3,
+        ]);
+
+        // Update buffers
+        gpu_state.queue.write_buffer(
+            &self.vertex_buffer,
+            0,
+            bytemuck::cast_slice(&vertices),
+        );
+        gpu_state.queue.write_buffer(
+            &self.index_buffer,
+            0,
+            bytemuck::cast_slice(&indices),
+        );
+
+        self.num_indices = indices.len() as u32;
+
+        // Render border
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Border Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load,
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+
+        Ok(())
+    }
+
     fn color_to_rgba_array(&self, color: &Color) -> [f32; 4] {
         match color {
             Color::Black => [0.0, 0.0, 0.0, 1.0],
