@@ -1,4 +1,5 @@
 use super::Color;
+use std::collections::HashSet;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CellStyle {
@@ -55,6 +56,9 @@ pub struct Grid {
     scrollback: Vec<Vec<Cell>>,
     max_scrollback: usize,
     scroll_offset: usize, // 0 = at bottom (current), >0 = scrolled back
+    // Dirty tracking for performance
+    dirty_cells: HashSet<(usize, usize)>, // (col, row) of dirty cells
+    all_dirty: bool, // True if entire screen needs redraw
 }
 
 impl Grid {
@@ -74,6 +78,8 @@ impl Grid {
             scrollback: Vec::new(),
             max_scrollback: 10000, // Store up to 10000 lines
             scroll_offset: 0,
+            dirty_cells: HashSet::new(),
+            all_dirty: true, // Start with full redraw
         }
     }
 
@@ -97,6 +103,9 @@ impl Grid {
         self.cursor_x = self.cursor_x.min(cols - 1);
         self.cursor_y = self.cursor_y.min(rows - 1);
         self.scroll_bottom = rows - 1;
+
+        // Mark all as dirty after resize
+        self.all_dirty = true;
     }
 
     pub fn put_char(&mut self, c: char) {
@@ -115,6 +124,8 @@ impl Grid {
                 c,
                 style: self.current_style,
             };
+            // Mark cell as dirty
+            self.dirty_cells.insert((self.cursor_x, self.cursor_y));
         }
         self.cursor_x += 1;
     }
@@ -160,6 +171,8 @@ impl Grid {
         for cell in &mut self.cells {
             *cell = Cell::default();
         }
+        // Mark all as dirty
+        self.all_dirty = true;
     }
 
     pub fn clear_line(&mut self) {
@@ -169,6 +182,10 @@ impl Grid {
             if idx < self.cells.len() {
                 self.cells[idx] = Cell::default();
             }
+        }
+        // Mark entire line as dirty
+        for x in 0..self.cols {
+            self.dirty_cells.insert((x, self.cursor_y));
         }
     }
 
@@ -219,6 +236,9 @@ impl Grid {
 
         // Reset scroll offset when new content arrives
         self.scroll_offset = 0;
+
+        // Mark all as dirty after scroll
+        self.all_dirty = true;
     }
 
     pub fn set_style(&mut self, style: CellStyle) {
@@ -280,15 +300,30 @@ impl Grid {
 
     pub fn scroll_back_up(&mut self, lines: usize) {
         let max_offset = self.scrollback.len();
+        let old_offset = self.scroll_offset;
         self.scroll_offset = (self.scroll_offset + lines).min(max_offset);
+        // Mark all dirty if scroll changed
+        if old_offset != self.scroll_offset {
+            self.all_dirty = true;
+        }
     }
 
     pub fn scroll_back_down(&mut self, lines: usize) {
+        let old_offset = self.scroll_offset;
         self.scroll_offset = self.scroll_offset.saturating_sub(lines);
+        // Mark all dirty if scroll changed
+        if old_offset != self.scroll_offset {
+            self.all_dirty = true;
+        }
     }
 
     pub fn scroll_to_bottom(&mut self) {
+        let old_offset = self.scroll_offset;
         self.scroll_offset = 0;
+        // Mark all dirty if scroll changed
+        if old_offset != self.scroll_offset {
+            self.all_dirty = true;
+        }
     }
 
     pub fn is_at_bottom(&self) -> bool {
@@ -301,5 +336,23 @@ impl Grid {
 
     pub fn scroll_offset(&self) -> usize {
         self.scroll_offset
+    }
+
+    // Dirty tracking methods
+    pub fn is_all_dirty(&self) -> bool {
+        self.all_dirty
+    }
+
+    pub fn dirty_cells(&self) -> &HashSet<(usize, usize)> {
+        &self.dirty_cells
+    }
+
+    pub fn clear_dirty(&mut self) {
+        self.all_dirty = false;
+        self.dirty_cells.clear();
+    }
+
+    pub fn mark_all_dirty(&mut self) {
+        self.all_dirty = true;
     }
 }
