@@ -3,7 +3,7 @@ use std::time::{Duration, Instant};
 use titi::{renderer::Renderer, ui::PaneManager, Config};
 use winit::{
     application::ApplicationHandler,
-    event::{ElementState, KeyEvent, WindowEvent},
+    event::{ElementState, KeyEvent, MouseButton, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     keyboard::{Key, ModifiersState, NamedKey},
     window::{Window, WindowId},
@@ -16,6 +16,7 @@ struct App {
     config: Config,
     modifiers: ModifiersState,
     last_frame: Instant,
+    cursor_position: (f64, f64),
 }
 
 impl App {
@@ -27,6 +28,7 @@ impl App {
             config,
             modifiers: ModifiersState::default(),
             last_frame: Instant::now(),
+            cursor_position: (0.0, 0.0),
         }
     }
 
@@ -308,6 +310,32 @@ impl ApplicationHandler for App {
             }
             WindowEvent::ModifiersChanged(new_modifiers) => {
                 self.modifiers = new_modifiers.state();
+            }
+            WindowEvent::CursorMoved { position, .. } => {
+                self.cursor_position = (position.x, position.y);
+            }
+            WindowEvent::MouseInput { state: ElementState::Pressed, button: MouseButton::Left, .. } => {
+                // Handle left mouse click - focus pane at cursor position
+                if let Some(window) = &self.window {
+                    let window_size = window.inner_size();
+                    let pane_bounds = self.pane_manager.layout().calculate_bounds(
+                        window_size.width as f32,
+                        window_size.height as f32,
+                    );
+
+                    // Find which pane was clicked
+                    for (pane_id, (x, y, width, height)) in pane_bounds.iter() {
+                        let (cursor_x, cursor_y) = self.cursor_position;
+                        if cursor_x >= *x as f64
+                            && cursor_x < (*x + *width) as f64
+                            && cursor_y >= *y as f64
+                            && cursor_y < (*y + *height) as f64
+                        {
+                            self.pane_manager.set_active_pane(*pane_id);
+                            break;
+                        }
+                    }
+                }
             }
             WindowEvent::RedrawRequested => {
                 // Poll terminals for output
