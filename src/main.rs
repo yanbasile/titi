@@ -1,3 +1,4 @@
+use arboard::Clipboard;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use titi::{renderer::Renderer, ui::PaneManager, Config};
@@ -17,10 +18,12 @@ struct App {
     modifiers: ModifiersState,
     last_frame: Instant,
     cursor_position: (f64, f64),
+    clipboard: Option<Clipboard>,
 }
 
 impl App {
     fn new(config: Config) -> Self {
+        let clipboard = Clipboard::new().ok();
         Self {
             window: None,
             renderer: None,
@@ -29,6 +32,7 @@ impl App {
             modifiers: ModifiersState::default(),
             last_frame: Instant::now(),
             cursor_position: (0.0, 0.0),
+            clipboard,
         }
     }
 
@@ -184,6 +188,39 @@ impl App {
                     }
                 }
             }
+            Key::Character(c) if c == "c" && self.modifiers.control_key() && self.modifiers.shift_key() => {
+                // Ctrl+Shift+C: Copy visible text from active pane
+                if let Some(pane_id) = self.pane_manager.active_pane() {
+                    let text = self.get_visible_text(pane_id);
+                    if let Some(clipboard) = &mut self.clipboard {
+                        if let Err(e) = clipboard.set_text(text) {
+                            log::error!("Failed to copy to clipboard: {}", e);
+                        }
+                    }
+                }
+            }
+            Key::Character(c) if c == "v" && self.modifiers.control_key() && self.modifiers.shift_key() => {
+                // Ctrl+Shift+V: Paste from clipboard
+                if let Some(pane_id) = self.pane_manager.active_pane() {
+                    if let Some(clipboard) = &mut self.clipboard {
+                        match clipboard.get_text() {
+                            Ok(text) => {
+                                if let Some(pane) = self.pane_manager.get_pane_mut(pane_id) {
+                                    // Scroll to bottom on paste
+                                    pane.terminal.scroll_to_bottom();
+
+                                    if let Err(e) = pane.terminal.write(text.as_bytes()) {
+                                        log::error!("Failed to write pasted text: {}", e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                log::error!("Failed to read from clipboard: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
             _ => {
                 // Send input to active pane
                 if let Some(text) = self.key_to_bytes(&event) {
@@ -252,6 +289,36 @@ impl App {
                     }
                 }
             }
+        }
+    }
+
+    fn get_visible_text(&self, pane_id: titi::ui::PaneId) -> String {
+        if let Some(pane) = self.pane_manager.get_pane(pane_id) {
+            let grid = pane.terminal.grid();
+            let g = grid.lock().unwrap();
+            let (cols, rows) = g.size();
+            let mut text = String::new();
+
+            for row in 0..rows {
+                let mut line = String::new();
+                for col in 0..cols {
+                    if let Some(cell) = g.get_cell(col, row) {
+                        line.push(cell.c);
+                    }
+                }
+                // Trim trailing spaces from each line
+                let trimmed = line.trim_end();
+                if !trimmed.is_empty() || row < rows - 1 {
+                    text.push_str(trimmed);
+                    if row < rows - 1 {
+                        text.push('\n');
+                    }
+                }
+            }
+
+            text
+        } else {
+            String::new()
         }
     }
 }
