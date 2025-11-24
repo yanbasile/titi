@@ -1,8 +1,10 @@
 mod text_renderer;
 mod gpu_state;
+mod glyph_atlas;
 
 pub use text_renderer::TextRenderer;
 pub use gpu_state::GpuState;
+pub use glyph_atlas::GlyphAtlas;
 
 use crate::terminal::Grid;
 use crate::Config;
