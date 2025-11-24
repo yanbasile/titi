@@ -32,6 +32,22 @@ dirs = "5.0"
 lazy_static = "1.4"
 bytemuck = { version = "1.14", features = ["derive"] }
 
+[[test]]
+name = "grid_tests"
+path = "tests/terminal/grid_tests.rs"
+
+[[test]]
+name = "parser_tests"
+path = "tests/terminal/parser_tests.rs"
+
+[[test]]
+name = "performance"
+path = "tests/stress/performance.rs"
+
+[[test]]
+name = "concurrency"
+path = "tests/stress/concurrency.rs"
+
 [profile.release]
 opt-level = 3
 lto = true
