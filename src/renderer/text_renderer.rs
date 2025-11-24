@@ -403,6 +403,179 @@ impl TextRenderer {
         (self.cell_width, self.cell_height)
     }
 
+    pub fn render_with_viewport(
+        &mut self,
+        gpu_state: &GpuState,
+        encoder: &mut wgpu::CommandEncoder,
+        view: &wgpu::TextureView,
+        grid: &Arc<Mutex<Grid>>,
+        viewport: (u32, u32, u32, u32), // (x, y, width, height)
+    ) -> anyhow::Result<()> {
+        let (viewport_x, viewport_y, viewport_width, viewport_height) = viewport;
+
+        let grid = grid.lock().unwrap();
+        let (cols, rows) = grid.size();
+
+        // Generate vertices and indices for all visible characters
+        let mut vertices = Vec::new();
+        let mut indices = Vec::new();
+
+        for row in 0..rows {
+            for col in 0..cols {
+                if let Some(cell) = grid.get_cell(col, row) {
+                    // Skip empty cells
+                    if cell.c == ' ' || cell.c == '\0' {
+                        continue;
+                    }
+
+                    // Get or cache the glyph
+                    let glyph_info = self.glyph_atlas.get_or_cache_glyph(
+                        &gpu_state.queue,
+                        cell.c,
+                        cell.style.bold,
+                        cell.style.italic,
+                    );
+
+                    if let Some(glyph) = glyph_info {
+                        // Calculate position relative to viewport
+                        let x = viewport_x as f32 + col as f32 * self.cell_width;
+                        let y = viewport_y as f32 + row as f32 * self.cell_height;
+
+                        // Convert colors to RGBA
+                        let fg_color = self.color_to_rgba_array(&cell.style.fg);
+                        let bg_color = self.color_to_rgba_array(&cell.style.bg);
+
+                        // Render background if not default
+                        if !matches!(cell.style.bg, Color::Default) {
+                            let base_vertex = vertices.len() as u32;
+
+                            vertices.extend_from_slice(&[
+                                Vertex {
+                                    position: [x, y],
+                                    tex_coords: [0.0, 0.0],
+                                    color: bg_color,
+                                },
+                                Vertex {
+                                    position: [x + self.cell_width, y],
+                                    tex_coords: [0.0, 0.0],
+                                    color: bg_color,
+                                },
+                                Vertex {
+                                    position: [x + self.cell_width, y + self.cell_height],
+                                    tex_coords: [0.0, 0.0],
+                                    color: bg_color,
+                                },
+                                Vertex {
+                                    position: [x, y + self.cell_height],
+                                    tex_coords: [0.0, 0.0],
+                                    color: bg_color,
+                                },
+                            ]);
+
+                            indices.extend_from_slice(&[
+                                base_vertex, base_vertex + 1, base_vertex + 2,
+                                base_vertex, base_vertex + 2, base_vertex + 3,
+                            ]);
+                        }
+
+                        // Render foreground character
+                        let base_vertex = vertices.len() as u32;
+
+                        // Calculate glyph size in pixels
+                        let (atlas_width, atlas_height) = self.glyph_atlas.atlas_size();
+                        let glyph_width = glyph.width * atlas_width as f32;
+                        let glyph_height = glyph.height * atlas_height as f32;
+
+                        vertices.extend_from_slice(&[
+                            Vertex {
+                                position: [x, y],
+                                tex_coords: [glyph.atlas_x, glyph.atlas_y],
+                                color: fg_color,
+                            },
+                            Vertex {
+                                position: [x + glyph_width, y],
+                                tex_coords: [glyph.atlas_x + glyph.width, glyph.atlas_y],
+                                color: fg_color,
+                            },
+                            Vertex {
+                                position: [x + glyph_width, y + glyph_height],
+                                tex_coords: [glyph.atlas_x + glyph.width, glyph.atlas_y + glyph.height],
+                                color: fg_color,
+                            },
+                            Vertex {
+                                position: [x, y + glyph_height],
+                                tex_coords: [glyph.atlas_x, glyph.atlas_y + glyph.height],
+                                color: fg_color,
+                            },
+                        ]);
+
+                        indices.extend_from_slice(&[
+                            base_vertex, base_vertex + 1, base_vertex + 2,
+                            base_vertex, base_vertex + 2, base_vertex + 3,
+                        ]);
+                    }
+                }
+            }
+        }
+
+        drop(grid);
+
+        // If no vertices to render, early return
+        if vertices.is_empty() {
+            return Ok(());
+        }
+
+        // Update vertex and index buffers
+        gpu_state.queue.write_buffer(
+            &self.vertex_buffer,
+            0,
+            bytemuck::cast_slice(&vertices),
+        );
+        gpu_state.queue.write_buffer(
+            &self.index_buffer,
+            0,
+            bytemuck::cast_slice(&indices),
+        );
+
+        self.num_indices = indices.len() as u32;
+
+        // Begin render pass with viewport and scissor rectangle
+        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: Some("Pane Render Pass"),
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Load, // Load existing content (don't clear)
+                    store: wgpu::StoreOp::Store,
+                },
+            })],
+            depth_stencil_attachment: None,
+            timestamp_writes: None,
+            occlusion_query_set: None,
+        });
+
+        // Set viewport and scissor rectangle for this pane
+        render_pass.set_viewport(
+            viewport_x as f32,
+            viewport_y as f32,
+            viewport_width as f32,
+            viewport_height as f32,
+            0.0,
+            1.0,
+        );
+        render_pass.set_scissor_rect(viewport_x, viewport_y, viewport_width, viewport_height);
+
+        render_pass.set_pipeline(&self.render_pipeline);
+        render_pass.set_bind_group(0, &self.uniform_bind_group, &[]);
+        render_pass.set_bind_group(1, &self.texture_bind_group, &[]);
+        render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
+
+        Ok(())
+    }
+
     fn color_to_rgba_array(&self, color: &Color) -> [f32; 4] {
         match color {
             Color::Black => [0.0, 0.0, 0.0, 1.0],
