@@ -42,6 +42,14 @@ name = "parser_tests"
 path = "tests/terminal/parser_tests.rs"
 
 [[test]]
+name = "dirty_tracking_tests"
+path = "tests/terminal/dirty_tracking_tests.rs"
+
+[[test]]
+name = "text_extraction_tests"
+path = "tests/terminal/text_extraction_tests.rs"
+
+[[test]]
 name = "performance"
 path = "tests/stress/performance.rs"
 
@@ -52,6 +60,10 @@ path = "tests/stress/concurrency.rs"
 [[test]]
 name = "memory_leak_detection"
 path = "tests/stress/memory_leak_detection.rs"
+
+[[test]]
+name = "regression"
+path = "tests/regression.rs"
 
 [profile.release]
 opt-level = 3

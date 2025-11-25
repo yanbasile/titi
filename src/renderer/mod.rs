@@ -1,6 +1,6 @@
 mod text_renderer;
 mod gpu_state;
-mod glyph_atlas;
+pub mod glyph_atlas;
 pub mod vertex;
 
 pub use text_renderer::TextRenderer;
