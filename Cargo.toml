@@ -33,6 +33,14 @@ lazy_static = "1.4"
 bytemuck = { version = "1.14", features = ["derive"] }
 arboard = "3.4"
 
+# Server dependencies
+tokio = { version = "1.0", features = ["full"] }
+rand = "0.8"
+
+[[bin]]
+name = "redititi"
+path = "src/bin/redititi.rs"
+
 [[test]]
 name = "grid_tests"
 path = "tests/terminal/grid_tests.rs"
