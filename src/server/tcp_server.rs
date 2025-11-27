@@ -141,27 +141,16 @@ impl TcpServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tokio::net::TcpStream;
-
-    async fn start_test_server() -> (TcpServer, String, String) {
-        let auth = TokenAuth {
-            token: "test_token_123".to_string(),
-            token_path: std::path::PathBuf::new(),
-        };
-        let token = auth.token().to_string();
-        let addr = "127.0.0.1:0".to_string(); // Port 0 = random available port
-        let server = TcpServer::new(addr, auth);
-
-        (server, token, "127.0.0.1:16379".to_string())
-    }
 
     #[tokio::test]
-    async fn test_authentication_required() {
-        // This test would require a running server
-        // For now, just test the protocol parsing
+    async fn test_protocol_parsing() {
+        // Test the protocol parsing
         let (cmd, args) = Protocol::parse_command("AUTH mytoken").unwrap();
         assert_eq!(cmd, "AUTH");
         assert_eq!(args[0], "mytoken");
+
+        let (cmd, args) = Protocol::parse_command("LIST SESSIONS").unwrap();
+        assert_eq!(cmd, "LIST");
+        assert_eq!(args[0], "SESSIONS");
     }
 }

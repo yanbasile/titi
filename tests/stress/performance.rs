@@ -189,9 +189,9 @@ fn test_stress_grid_resize() {
     let mut grid = Grid::new(80, 24);
 
     // Fill with content
-    for y in 0..24 {
-        for x in 0..80 {
-            let ch = ('A' as u8 + ((x + y) % 26)) as char;
+    for y in 0..24_usize {
+        for x in 0..80_usize {
+            let ch = ('A' as u8 + ((x + y) % 26) as u8) as char;
             grid.set_cursor(x, y);
             grid.put_char(ch);
         }
@@ -221,9 +221,9 @@ fn test_stress_scrolling() {
     let mut grid = Grid::new(80, 24);
 
     // Fill with identifiable content
-    for row in 0..24 {
+    for row in 0..24_usize {
         grid.set_cursor(0, row);
-        let ch = ('A' as u8 + (row % 26)) as char;
+        let ch = ('A' as u8 + (row % 26) as u8) as char;
         for _ in 0..80 {
             grid.put_char(ch);
         }

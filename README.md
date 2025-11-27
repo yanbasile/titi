@@ -2,6 +2,10 @@
 
 A GPU-accelerated terminal emulator written in Rust with hierarchical tab/pane management, designed to be compatible with Claude Code.
 
+## 🚀 Quick Start
+
+**New to Titi?** Check out the [Getting Started Guide](GETTING_STARTED.md) for detailed installation instructions including how to install Rust, build dependencies, and run your first terminal session.
+
 ## Features
 
 - **GPU-Accelerated Rendering**: Uses `wgpu` for high-performance text rendering
@@ -13,6 +17,10 @@ A GPU-accelerated terminal emulator written in Rust with hierarchical tab/pane m
 - **🆕 Real-time Metrics**: FPS, memory, per-terminal stats, performance profiling
 - **🆕 Memory Leak Detection**: Automatic detection and warnings for memory issues
 - **🆕 Production-Ready Monitoring**: Structured logging and metrics collection
+- **🆕 Terminal Automation**: Redis-like server (redititi) for command injection and screen capture
+- **🆕 Copy/Paste Support**: Clipboard integration with platform-specific handling
+- **🆕 Mouse Support**: Click to focus panes and interact with terminal applications
+- **🆕 Dirty Rectangle Tracking**: Performance optimization for selective rendering
 
 ## Architecture
 
@@ -47,22 +55,38 @@ A GPU-accelerated terminal emulator written in Rust with hierarchical tab/pane m
   - Performance benchmarks
   - Concurrency tests
 
+- **🆕 Automation Server** (`src/server/`, `src/bin/redititi.rs`):
+  - Redis-like TCP server for terminal automation
+  - Token-based authentication
+  - Session/pane registry with pub/sub channels
+  - Command injection and screen capture APIs
+  - Standalone binary for external control
+
 ## Installation
 
-### Prerequisites
+**📖 For detailed installation instructions, see [GETTING_STARTED.md](GETTING_STARTED.md)**
 
-- Rust 1.70 or later
-- Graphics drivers supporting Vulkan, Metal, or DirectX 12
-
-### Build from Source
+### Quick Install (for experienced Rust users)
 
 ```bash
+# Install Rust (if needed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Clone and build
 git clone https://github.com/yourusername/titi.git
 cd titi
 cargo build --release
+
+# Run
+./target/release/titi
 ```
 
-The binary will be available at `target/release/titi`.
+### What You'll Build
+
+- **`titi`**: GPU-accelerated terminal emulator
+- **`redititi`**: Redis-like automation server for terminal control
+
+Both binaries will be available in `target/release/`.
 
 ## Usage
 
@@ -75,8 +99,40 @@ cargo run --release
 ### Keyboard Shortcuts
 
 - `Ctrl+T` or `Ctrl+Enter`: Create new terminal pane
+- `Ctrl+Shift+C`: Copy selected text
+- `Ctrl+Shift+V`: Paste from clipboard
+- Mouse click: Focus pane
 - Standard terminal key bindings (arrows, home, end, etc.)
 - `Ctrl+[a-z]`: Control character combinations
+
+### Running the Automation Server
+
+Start the redititi server for terminal automation:
+
+```bash
+# Run with default settings (port 6379)
+cargo run --bin redititi --release
+
+# Or use the binary directly
+./target/release/redititi
+
+# Custom port
+./target/release/redititi --port 6380
+```
+
+The server will display your authentication token on startup. Save it for connecting clients!
+
+**Example commands** (using netcat):
+
+```bash
+nc localhost 6379
+AUTH your_token_here
+LIST SESSIONS
+CREATE SESSION my-session
+SUBSCRIBE session-{id}/pane-{id}/output
+```
+
+See [GETTING_STARTED.md](GETTING_STARTED.md) for more details on server automation.
 
 ### Configuration
 
@@ -171,12 +227,27 @@ RUST_LOG=debug cargo run
 
 ## Roadmap
 
-This is a first version (MVP) with the following planned improvements:
+### ✅ Completed
 
-- [ ] Complete text rendering implementation (currently placeholder)
-- [ ] Multiple pane rendering and switching
+- [x] Complete text rendering with glyph atlas and caching
+- [x] Multiple pane rendering and switching
+- [x] Copy/paste support with clipboard integration
+- [x] Mouse support for pane focus
+- [x] Dirty rectangle tracking for performance
+- [x] Comprehensive testing infrastructure (90+ tests)
+- [x] Real-time metrics and monitoring
+- [x] Memory leak detection
+- [x] Redis-like automation server (redititi)
+
+### 🚧 In Progress
+
+- [ ] Terminal integration with redititi server
+- [ ] Headless mode for automated testing
+- [ ] Python client library (titipy)
+
+### 📋 Planned
+
 - [ ] Pane resize and drag-and-drop
-- [ ] Copy/paste support
 - [ ] Scrollback buffer
 - [ ] Configuration hot-reloading
 - [ ] Custom key bindings
@@ -184,6 +255,8 @@ This is a first version (MVP) with the following planned improvements:
 - [ ] Search functionality
 - [ ] URL detection and opening
 - [ ] Image protocol support (Sixel, iTerm2)
+- [ ] Ligature support for coding fonts
+- [ ] Multi-monitor support
 
 ## Contributing
 

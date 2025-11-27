@@ -280,7 +280,7 @@ fn test_stress_concurrent_grid_operations() {
                 for i in 0..operations_per_thread {
                     let mut g = grid.lock().unwrap();
                     g.set_cursor((i % 80), (i % 24));
-                    g.put_char(('A' as u8 + (idx % 26)) as char);
+                    g.put_char(('A' as u8 + (idx % 26) as u8) as char);
 
                     if i % 100 == 0 {
                         g.clear_screen();
