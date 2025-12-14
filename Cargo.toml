@@ -74,6 +74,10 @@ path = "tests/stress/memory_leak_detection.rs"
 name = "regression"
 path = "tests/regression.rs"
 
+[[test]]
+name = "server_integration"
+path = "tests/integration/server_integration_tests.rs"
+
 [profile.release]
 opt-level = 3
 lto = true

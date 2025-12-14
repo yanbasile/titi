@@ -88,6 +88,15 @@ impl TokenAuth {
         &self.token_path
     }
 
+    /// Create TokenAuth from a specific token (for testing)
+    #[cfg(test)]
+    pub fn from_token(token: String) -> Result<Self, AuthError> {
+        Ok(Self {
+            token,
+            token_path: PathBuf::from("/tmp/titi_test_token"),
+        })
+    }
+
     /// Generate a random 64-character token
     fn generate_token() -> String {
         let mut rng = rand::thread_rng();
