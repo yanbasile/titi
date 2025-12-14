@@ -12,6 +12,8 @@ A GPU-accelerated terminal emulator written in Rust with hierarchical tab/pane m
 
 **Contributing or testing?** See [BATTLE_TEST_PLAN.md](BATTLE_TEST_PLAN.md) for our comprehensive testing strategy including stress tests, chaos engineering, and production readiness criteria.
 
+**Roadmap and next steps?** Check out [IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md) for the detailed plan: Merge → Phase 3 (Integration) → Battle Testing → v1.0.0 Release.
+
 ## Features
 
 - **GPU-Accelerated Rendering**: Uses `wgpu` for high-performance text rendering
