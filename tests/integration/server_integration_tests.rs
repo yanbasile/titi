@@ -96,16 +96,10 @@ async fn test_basic_client_api() {
 
 // Future integration tests to add once we have a test-friendly TokenAuth:
 //
-// - test_server_connection_and_authentication()
-// - test_session_and_pane_creation()
-// - test_subscribe_and_publish()
 // - test_command_injection_flow()
 // - test_output_capture_flow()
-// - test_multiple_clients()
 // - test_reconnection()
 // - test_full_headless_terminal_integration()
-<<<<<<< HEAD
-=======
 
 /// Helper to start a test server with environment variable auth
 async fn start_test_server_with_env(port: u16) -> (String, tokio::task::JoinHandle<()>) {
@@ -253,4 +247,3 @@ async fn test_multiple_clients() {
     handle.abort();
     sleep(Duration::from_millis(100)).await;
 }
->>>>>>> 962c700 (Add working Titi + Redititi integration tests)

@@ -64,8 +64,16 @@ impl ServerClient {
         self.send_command(&cmd).await?;
         let response = self.read_response().await?;
 
-        if let Some(session_id) = response.strip_prefix("+OK ") {
-            self.session_id = session_id.trim().to_string();
+        if let Some(data) = response.strip_prefix("+OK ") {
+            // Parse response: "session-id:xxx pane-id:yyy"
+            let parts: Vec<&str> = data.trim().split_whitespace().collect();
+            for part in parts {
+                if let Some(id) = part.strip_prefix("session-id:") {
+                    self.session_id = id.to_string();
+                } else if let Some(id) = part.strip_prefix("pane-id:") {
+                    self.pane_id = id.to_string();
+                }
+            }
             Ok(self.session_id.clone())
         } else {
             Err(format!("Failed to create session: {}", response))
@@ -91,9 +99,14 @@ impl ServerClient {
         self.send_command(&cmd).await?;
         let response = self.read_response().await?;
 
-        if let Some(pane_id) = response.strip_prefix("+OK ") {
-            self.pane_id = pane_id.trim().to_string();
-            Ok(self.pane_id.clone())
+        if let Some(data) = response.strip_prefix("+OK ") {
+            // Parse response: "pane-id:xxx"
+            if let Some(id) = data.trim().strip_prefix("pane-id:") {
+                self.pane_id = id.to_string();
+                Ok(self.pane_id.clone())
+            } else {
+                Err(format!("Invalid pane response format: {}", data))
+            }
         } else {
             Err(format!("Failed to create pane: {}", response))
         }
