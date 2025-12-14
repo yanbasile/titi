@@ -104,3 +104,153 @@ async fn test_basic_client_api() {
 // - test_multiple_clients()
 // - test_reconnection()
 // - test_full_headless_terminal_integration()
+<<<<<<< HEAD
+=======
+
+/// Helper to start a test server with environment variable auth
+async fn start_test_server_with_env(port: u16) -> (String, tokio::task::JoinHandle<()>) {
+    let token = "test_token_12345678901234567890123456789012345678901234567890123456".to_string();
+
+    // Set environment variable before creating auth
+    std::env::set_var("TITI_TOKEN", &token);
+
+    let auth = TokenAuth::new().expect("Failed to create auth");
+    let server = RedititiTcpServer::new(format!("127.0.0.1:{}", port), auth);
+
+    let handle = tokio::spawn(async move {
+        if let Err(e) = server.run().await {
+            eprintln!("Test server error: {}", e);
+        }
+    });
+
+    // Give server time to start
+    sleep(Duration::from_millis(200)).await;
+
+    (token, handle)
+}
+
+#[tokio::test]
+async fn test_server_client_connection() {
+    let port = 17379;
+    let (token, handle) = start_test_server_with_env(port).await;
+
+    // Connect client
+    let mut client = ServerClient::connect(&format!("127.0.0.1:{}", port))
+        .await
+        .expect("Failed to connect to test server");
+
+    // Authenticate
+    client.authenticate(&token)
+        .await
+        .expect("Authentication failed");
+
+    assert!(client.is_authenticated());
+
+    // Cleanup
+    handle.abort();
+    sleep(Duration::from_millis(100)).await;
+}
+
+#[tokio::test]
+async fn test_session_and_pane_management() {
+    let port = 17380;
+    let (token, handle) = start_test_server_with_env(port).await;
+
+    let mut client = ServerClient::connect(&format!("127.0.0.1:{}", port))
+        .await
+        .expect("Failed to connect");
+
+    client.authenticate(&token).await.expect("Auth failed");
+
+    // Create session
+    let session_id = client.create_session(Some("test-session"))
+        .await
+        .expect("Failed to create session");
+
+    assert_eq!(session_id, "test-session");
+    assert_eq!(client.session_id(), "test-session");
+
+    // Create pane
+    let pane_id = client.create_pane(Some("test-pane"))
+        .await
+        .expect("Failed to create pane");
+
+    assert_eq!(pane_id, "test-pane");
+    assert_eq!(client.pane_id(), "test-pane");
+
+    // Cleanup
+    handle.abort();
+    sleep(Duration::from_millis(100)).await;
+}
+
+#[tokio::test]
+async fn test_channel_pub_sub() {
+    let port = 17381;
+    let (token, handle) = start_test_server_with_env(port).await;
+
+    let mut client = ServerClient::connect(&format!("127.0.0.1:{}", port))
+        .await
+        .expect("Failed to connect");
+
+    client.authenticate(&token).await.expect("Auth failed");
+
+    // Create session and pane
+    client.create_session(Some("pub-test")).await.expect("Session failed");
+    client.create_pane(Some("pane1")).await.expect("Pane failed");
+
+    // Subscribe to input channel
+    client.subscribe_input()
+        .await
+        .expect("Subscribe failed");
+
+    // Publish output
+    client.publish_output("Line 1: Hello from test")
+        .await
+        .expect("Publish failed");
+
+    client.publish_output("Line 2: Second message")
+        .await
+        .expect("Publish failed");
+
+    // Give time for messages to be processed
+    sleep(Duration::from_millis(50)).await;
+
+    // Cleanup
+    handle.abort();
+    sleep(Duration::from_millis(100)).await;
+}
+
+#[tokio::test]
+async fn test_multiple_clients() {
+    let port = 17382;
+    let (token, handle) = start_test_server_with_env(port).await;
+
+    // Create 3 clients
+    let mut clients = Vec::new();
+    for i in 0..3 {
+        let mut client = ServerClient::connect(&format!("127.0.0.1:{}", port))
+            .await
+            .expect(&format!("Failed to connect client {}", i));
+
+        client.authenticate(&token)
+            .await
+            .expect(&format!("Client {} auth failed", i));
+
+        let session_name = format!("session-{}", i);
+        client.create_session(Some(&session_name))
+            .await
+            .expect(&format!("Client {} session failed", i));
+
+        clients.push(client);
+    }
+
+    // Verify all sessions are unique
+    assert_eq!(clients[0].session_id(), "session-0");
+    assert_eq!(clients[1].session_id(), "session-1");
+    assert_eq!(clients[2].session_id(), "session-2");
+
+    // Cleanup
+    handle.abort();
+    sleep(Duration::from_millis(100)).await;
+}
+>>>>>>> 962c700 (Add working Titi + Redititi integration tests)

@@ -7,6 +7,7 @@ This document outlines a comprehensive battle testing strategy to make Titi and 
 1. [Overview](#overview)
 2. [Current Test Coverage](#current-test-coverage)
 3. [Battle Test Strategy](#battle-test-strategy)
+<<<<<<< HEAD
 4. [Titi Terminal Stress Tests](#titi-terminal-stress-tests) (Suites 1-6)
 5. [Redititi Server Stress Tests](#redititi-server-stress-tests) (Suites 7-11)
 6. [Integration Stress Tests](#integration-stress-tests) (Suites 12-20) **★ NEW: 40+ Redititi tests**
@@ -19,6 +20,18 @@ This document outlines a comprehensive battle testing strategy to make Titi and 
 
 **Total: 26 Test Suites | 150+ Individual Tests | Emphasis on Titi + Redititi Integration**
 
+=======
+4. [Titi Terminal Stress Tests](#titi-terminal-stress-tests)
+5. [Redititi Server Stress Tests](#redititi-server-stress-tests)
+6. [Integration Stress Tests](#integration-stress-tests)
+7. [Chaos Engineering Tests](#chaos-engineering-tests)
+8. [Performance Benchmarks](#performance-benchmarks)
+9. [Security Tests](#security-tests)
+10. [Real-World Scenario Tests](#real-world-scenario-tests)
+11. [Implementation Phases](#implementation-phases)
+12. [Success Criteria](#success-criteria)
+
+>>>>>>> 962c700 (Add working Titi + Redititi integration tests)
 ---
 
 ## Overview
@@ -663,6 +676,7 @@ async fn test_agent_to_agent_messaging() {
 }
 ```
 
+<<<<<<< HEAD
 #### Test 13.3: Master-Worker Pattern
 ```rust
 #[tokio::test]
@@ -1101,6 +1115,8 @@ async fn test_collaborative_debugging() {
 }
 ```
 
+=======
+>>>>>>> 962c700 (Add working Titi + Redititi integration tests)
 ---
 
 ## Chaos Engineering Tests

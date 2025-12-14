@@ -75,7 +75,7 @@ name = "regression"
 path = "tests/regression.rs"
 
 [[test]]
-name = "server_integration"
+name = "server_integration_tests"
 path = "tests/integration/server_integration_tests.rs"
 
 [profile.release]
