@@ -8,6 +8,8 @@ A GPU-accelerated terminal emulator written in Rust with hierarchical tab/pane m
 
 **Want to orchestrate multiple Claude Code agents?** See [ARCHITECTURE.md](ARCHITECTURE.md) for a comprehensive guide on using Titi + Redititi for multi-agent terminal orchestration, including command injection, screen capture, and headless mode.
 
+**Want to use Aider for AI pair programming?** Check out [docs/AIDER_COMPATIBILITY.md](docs/AIDER_COMPATIBILITY.md) for a complete guide on running [Aider.chat](https://aider.chat) in Titi, including parallel multi-agent development workflows.
+
 ## Features
 
 - **GPU-Accelerated Rendering**: Uses `wgpu` for high-performance text rendering
