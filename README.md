@@ -10,6 +10,8 @@ A GPU-accelerated terminal emulator written in Rust with hierarchical tab/pane m
 
 **Want to use Aider for AI pair programming?** Check out [docs/AIDER_COMPATIBILITY.md](docs/AIDER_COMPATIBILITY.md) for a complete guide on running [Aider.chat](https://aider.chat) in Titi, including parallel multi-agent development workflows.
 
+**Contributing or testing?** See [BATTLE_TEST_PLAN.md](BATTLE_TEST_PLAN.md) for our comprehensive testing strategy including stress tests, chaos engineering, and production readiness criteria.
+
 ## Features
 
 - **GPU-Accelerated Rendering**: Uses `wgpu` for high-performance text rendering
