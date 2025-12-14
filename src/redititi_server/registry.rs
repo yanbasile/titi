@@ -193,7 +193,9 @@ mod tests {
     fn test_generate_memorable_name() {
         for _ in 0..100 {
             let name = Registry::generate_memorable_name();
-            assert!(name.len() <= 10, "Name too long: {}", name);
+            // Format: {adjective}-{color}{digit}
+            // Max length: "bright-silver9" = 14 chars
+            assert!(name.len() <= 15, "Name too long: {}", name);
             assert!(name.contains('-'), "Name should contain hyphen: {}", name);
             assert!(name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-'));
         }
@@ -228,10 +230,10 @@ mod tests {
         let mut registry = Registry::new();
 
         let session_id = registry.create_session(None).unwrap();
-        assert!(session_id.len() <= 10);
+        assert!(session_id.len() <= 15, "Session name too long: {}", session_id);
 
         let pane_id = registry.create_pane(&session_id, None).unwrap();
-        assert!(pane_id.len() <= 10);
+        assert!(pane_id.len() <= 15, "Pane name too long: {}", pane_id);
     }
 
     #[test]

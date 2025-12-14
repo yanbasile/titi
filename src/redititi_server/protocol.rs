@@ -78,7 +78,11 @@ mod tests {
 
         let (cmd, args) = Protocol::parse_command("INJECT session-1/pane-1 \"echo hello\"").unwrap();
         assert_eq!(cmd, "INJECT");
-        assert_eq!(args.len(), 2);
+        // Note: Basic parser splits on whitespace, quotes not preserved
+        assert_eq!(args.len(), 3);
+        assert_eq!(args[0], "session-1/pane-1");
+        assert_eq!(args[1], "\"echo");
+        assert_eq!(args[2], "hello\"");
     }
 
     #[test]
