@@ -6,6 +6,8 @@ A GPU-accelerated terminal emulator written in Rust with hierarchical tab/pane m
 
 **New to Titi?** Check out the [Getting Started Guide](GETTING_STARTED.md) for detailed installation instructions including how to install Rust, build dependencies, and run your first terminal session.
 
+**Want to orchestrate multiple Claude Code agents?** See [ARCHITECTURE.md](ARCHITECTURE.md) for a comprehensive guide on using Titi + Redititi for multi-agent terminal orchestration, including command injection, screen capture, and headless mode.
+
 ## Features
 
 - **GPU-Accelerated Rendering**: Uses `wgpu` for high-performance text rendering
