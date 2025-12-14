@@ -1,4 +1,5 @@
 use arboard::Clipboard;
+use clap::Parser;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use titi::{renderer::Renderer, ui::PaneManager, Config};
@@ -9,6 +10,40 @@ use winit::{
     keyboard::{Key, ModifiersState, NamedKey},
     window::{Window, WindowId},
 };
+
+/// Command-line arguments
+#[derive(Parser, Debug)]
+#[command(name = "titi")]
+#[command(about = "A GPU-accelerated terminal emulator", long_about = None)]
+struct Args {
+    /// Run in headless mode (no GUI)
+    #[arg(long)]
+    headless: bool,
+
+    /// Server address for headless mode (e.g., localhost:6379)
+    #[arg(long)]
+    server: Option<String>,
+
+    /// Authentication token for server
+    #[arg(long)]
+    token: Option<String>,
+
+    /// Session name (optional, creates new if not specified)
+    #[arg(long)]
+    session: Option<String>,
+
+    /// Pane name (optional)
+    #[arg(long)]
+    pane: Option<String>,
+
+    /// Terminal columns (default: 80)
+    #[arg(long, default_value = "80")]
+    cols: u16,
+
+    /// Terminal rows (default: 24)
+    #[arg(long, default_value = "24")]
+    rows: u16,
+}
 
 struct App {
     window: Option<Arc<Window>>,
@@ -442,6 +477,15 @@ impl ApplicationHandler for App {
 fn main() -> anyhow::Result<()> {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info")).init();
 
+    let args = Args::parse();
+
+    // Check if running in headless mode
+    if args.headless {
+        log::info!("Starting Titi Terminal Emulator in headless mode");
+        return run_headless_main(args);
+    }
+
+    // Normal GUI mode
     log::info!("Starting Titi Terminal Emulator");
 
     let config = Config::load().unwrap_or_default();
@@ -453,4 +497,31 @@ fn main() -> anyhow::Result<()> {
     event_loop.run_app(&mut app)?;
 
     Ok(())
+}
+
+#[tokio::main]
+async fn run_headless_main(args: Args) -> anyhow::Result<()> {
+    use titi::headless::{HeadlessConfig, run_headless};
+
+    // Validate required arguments for headless mode
+    let server_addr = args.server.ok_or_else(|| {
+        anyhow::anyhow!("--server is required in headless mode")
+    })?;
+
+    let token = args.token.ok_or_else(|| {
+        anyhow::anyhow!("--token is required in headless mode")
+    })?;
+
+    // Build headless configuration
+    let config = HeadlessConfig {
+        server_addr,
+        token,
+        session_name: args.session,
+        pane_name: args.pane,
+        cols: args.cols,
+        rows: args.rows,
+    };
+
+    // Run headless mode
+    run_headless(config).await
 }
