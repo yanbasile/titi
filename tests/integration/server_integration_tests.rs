@@ -9,7 +9,7 @@
 use std::time::Duration;
 use tokio::time::sleep;
 use titi::server_client::ServerClient;
-use titi::server::{TcpServer, TokenAuth};
+use titi::redititi_server::{RedititiTcpServer, TokenAuth};
 
 /// Helper to start a test redititi server
 /// Note: This test is currently disabled because TokenAuth requires file system access
@@ -27,7 +27,7 @@ async fn _start_test_server_disabled(port: u16) -> (String, tokio::task::JoinHan
     let auth = TokenAuth::new()
         .expect("Failed to create test auth");
 
-    let server = TcpServer::new(
+    let server = RedititiTcpServer::new(
         format!("127.0.0.1:{}", port),
         auth,
     );

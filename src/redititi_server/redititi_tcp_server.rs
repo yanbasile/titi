@@ -1,6 +1,6 @@
-//! TCP server for handling client connections
+//! Redititi TCP server for handling client connections
 //!
-//! Async TCP server that handles authentication and command routing.
+//! Async TCP server that handles authentication and command routing for the Redititi server.
 
 use super::auth::TokenAuth;
 use super::channels::{ChannelManager, ConnectionId};
@@ -15,7 +15,7 @@ use tokio::sync::RwLock;
 
 static NEXT_CONN_ID: AtomicU64 = AtomicU64::new(1);
 
-pub struct TcpServer {
+pub struct RedititiTcpServer {
     addr: String,
     auth: Arc<TokenAuth>,
     registry: Arc<RwLock<Registry>>,
@@ -23,7 +23,7 @@ pub struct TcpServer {
     command_handler: Arc<CommandHandler>,
 }
 
-impl TcpServer {
+impl RedititiTcpServer {
     pub fn new(addr: String, auth: TokenAuth) -> Self {
         let auth = Arc::new(auth);
         let registry = Arc::new(RwLock::new(Registry::new()));

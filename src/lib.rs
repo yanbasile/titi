@@ -3,7 +3,7 @@ pub mod renderer;
 pub mod ui;
 pub mod config;
 pub mod metrics;
-pub mod server;
+pub mod redititi_server;
 pub mod server_client;
 pub mod headless;
 
