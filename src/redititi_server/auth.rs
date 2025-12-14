@@ -27,20 +27,11 @@ pub struct TokenAuth {
 
 impl TokenAuth {
     /// Create a new TokenAuth, loading or generating a token
-    ///
-    /// Priority order:
-    /// 1. Environment variable TITI_TOKEN (if set)
-    /// 2. Existing token file (~/.titi/token)
-    /// 3. Generate new token and save to file
     pub fn new() -> Result<Self, AuthError> {
         let token_path = Self::get_token_path()?;
 
-        // First, check if environment variable is set
-        let token = if let Ok(env_token) = std::env::var("TITI_TOKEN") {
-            // Use token from environment variable (for testing or custom deployments)
-            env_token
-        } else if token_path.exists() {
-            // Try to load existing token from file
+        // Try to load existing token
+        let token = if token_path.exists() {
             fs::read_to_string(&token_path)?
         } else {
             // Generate new token
