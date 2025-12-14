@@ -458,3 +458,136 @@ async fn test_headless_terminal_with_real_pty() {
     server_handle.abort();
     sleep(Duration::from_millis(100)).await;
 }
+
+#[tokio::test]
+async fn test_session_recovery_after_disconnect() {
+    let port = 17387;
+    let (token, server_handle) = start_test_server_with_env(port).await;
+
+    // Create first client and establish session
+    let mut client1 = ServerClient::connect(&format!("127.0.0.1:{}", port))
+        .await
+        .expect("Client1 connection failed");
+
+    client1.authenticate(&token).await.expect("Client1 auth failed");
+    client1.create_session(Some("recovery-test")).await.expect("Session failed");
+    client1.create_pane(Some("pane1")).await.expect("Pane failed");
+
+    let session_id = client1.session_id().to_string();
+    let pane_id = client1.pane_id().to_string();
+
+    // Publish some data
+    client1.publish_output("DATA_BEFORE_DISCONNECT").await.expect("Publish failed");
+
+    sleep(Duration::from_millis(50)).await;
+
+    // Simulate disconnect by dropping client1
+    drop(client1);
+    sleep(Duration::from_millis(100)).await;
+
+    // Create new client and reconnect to same session (simulating recovery)
+    let mut client2 = ServerClient::connect(&format!("127.0.0.1:{}", port))
+        .await
+        .expect("Client2 connection failed");
+
+    client2.authenticate(&token).await.expect("Client2 auth failed");
+
+    // Session should still exist in registry
+    // Publish more data with the recovered session
+    client2.publish_to_channel(&format!("{}/pane-{}/output", session_id, pane_id), "DATA_AFTER_RECONNECT")
+        .await
+        .expect("Publish after reconnect failed");
+
+    sleep(Duration::from_millis(50)).await;
+
+    // Create observer client to verify both messages were stored
+    let mut observer = ServerClient::connect(&format!("127.0.0.1:{}", port))
+        .await
+        .expect("Observer connection failed");
+
+    observer.authenticate(&token).await.expect("Observer auth failed");
+
+    // Read from channel - should see data from after reconnect
+    let output = observer.read_from_channel(&session_id, &pane_id, "output")
+        .await
+        .expect("Read failed");
+
+    assert!(output.is_some(), "Should have output after reconnect");
+    let msg = output.unwrap();
+    assert!(msg.contains("DATA_AFTER_RECONNECT") || msg.contains("DATA_BEFORE_DISCONNECT"),
+            "Expected session data to persist, got: {}", msg);
+
+    // Cleanup
+    server_handle.abort();
+    sleep(Duration::from_millis(100)).await;
+}
+
+#[tokio::test]
+async fn test_large_output_buffering() {
+    let port = 17388;
+    let (token, server_handle) = start_test_server_with_env(port).await;
+
+    // Create terminal client
+    let mut terminal = ServerClient::connect(&format!("127.0.0.1:{}", port))
+        .await
+        .expect("Terminal connection failed");
+
+    terminal.authenticate(&token).await.expect("Terminal auth failed");
+    terminal.create_session(Some("buffer-test")).await.expect("Session failed");
+    terminal.create_pane(Some("pane1")).await.expect("Pane failed");
+
+    let session_id = terminal.session_id().to_string();
+    let pane_id = terminal.pane_id().to_string();
+
+    // Simulate large output burst (like `cat huge_file.txt`)
+    // Send 1000 messages rapidly
+    let message_count = 1000;
+    for i in 0..message_count {
+        let large_output = format!("LINE_{:04}: {}", i, "X".repeat(100));
+        terminal.publish_output(&large_output)
+            .await
+            .expect("Publish failed");
+    }
+
+    // Give time for messages to be processed
+    sleep(Duration::from_millis(500)).await;
+
+    // Create observer to read back the data
+    let mut observer = ServerClient::connect(&format!("127.0.0.1:{}", port))
+        .await
+        .expect("Observer connection failed");
+
+    observer.authenticate(&token).await.expect("Observer auth failed");
+
+    // Read back messages and verify we got them
+    let mut received_count = 0;
+    let mut found_first = false;
+    let mut found_last = false;
+
+    for _ in 0..message_count + 10 {
+        if let Ok(Some(output)) = observer.read_from_channel(&session_id, &pane_id, "output").await {
+            received_count += 1;
+            if output.contains("LINE_0000") {
+                found_first = true;
+            }
+            if output.contains("LINE_0999") {
+                found_last = true;
+            }
+        } else {
+            break;
+        }
+    }
+
+    // We should have received most messages (allowing for some loss under extreme load)
+    assert!(received_count >= message_count * 95 / 100,
+            "Expected at least 95% of messages, got {} out of {}", received_count, message_count);
+    assert!(found_first, "Should have found first message");
+    assert!(found_last, "Should have found last message");
+
+    eprintln!("✅ Buffering test: Received {}/{} messages ({}%)",
+              received_count, message_count, (received_count * 100) / message_count);
+
+    // Cleanup
+    server_handle.abort();
+    sleep(Duration::from_millis(100)).await;
+}

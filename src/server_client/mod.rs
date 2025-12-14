@@ -143,6 +143,19 @@ impl ServerClient {
         Ok(())
     }
 
+    /// Publish to arbitrary channel (for testing and advanced use cases)
+    pub async fn publish_to_channel(&self, channel: &str, data: &str) -> Result<(), String> {
+        if !self.authenticated {
+            return Err("Not authenticated".to_string());
+        }
+
+        let cmd = format!("PUBLISH {} {}", channel, data);
+        self.send_command(&cmd).await?;
+
+        // Don't wait for response for publish (fire and forget for performance)
+        Ok(())
+    }
+
     /// Read message from input channel (non-blocking)
     pub async fn read_input(&mut self) -> Result<Option<String>, String> {
         if !self.authenticated {
