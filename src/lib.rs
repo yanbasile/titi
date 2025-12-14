@@ -5,6 +5,7 @@ pub mod config;
 pub mod metrics;
 pub mod server;
 pub mod server_client;
+pub mod headless;
 
 pub use config::Config;
 pub use metrics::METRICS;
