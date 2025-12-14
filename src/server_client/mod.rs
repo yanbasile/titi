@@ -162,6 +162,60 @@ impl ServerClient {
         }
     }
 
+    /// Inject command into a terminal (for external clients controlling terminals)
+    pub async fn inject_command(&self, session_id: &str, pane_id: &str, command: &str) -> Result<(), String> {
+        if !self.authenticated {
+            return Err("Not authenticated".to_string());
+        }
+
+        let target = format!("{}/pane-{}", session_id, pane_id);
+        let cmd = format!("INJECT {} {}", target, command);
+        self.send_command(&cmd).await?;
+        let response = self.read_response().await?;
+
+        if response.starts_with("+OK") {
+            Ok(())
+        } else {
+            Err(format!("Failed to inject command: {}", response))
+        }
+    }
+
+    /// Subscribe to output channel to read terminal output
+    pub async fn subscribe_output(&mut self) -> Result<(), String> {
+        if !self.authenticated {
+            return Err("Not authenticated".to_string());
+        }
+
+        let channel = format!("{}/pane-{}/output", self.session_id, self.pane_id);
+        self.send_command(&format!("SUBSCRIBE {}", channel)).await?;
+        let response = self.read_response().await?;
+
+        if response.starts_with("+OK") {
+            Ok(())
+        } else {
+            Err(format!("Failed to subscribe to output: {}", response))
+        }
+    }
+
+    /// Read message from output channel (non-blocking)
+    pub async fn read_output(&mut self) -> Result<Option<String>, String> {
+        if !self.authenticated {
+            return Err("Not authenticated".to_string());
+        }
+
+        let channel = format!("{}/pane-{}/output", self.session_id, self.pane_id);
+        self.send_command(&format!("RPOP {}", channel)).await?;
+        let response = self.read_response().await?;
+
+        if response.starts_with("-ERR") {
+            Ok(None)  // Queue empty
+        } else if let Some(msg) = response.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
+            Ok(Some(msg.to_string()))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Get session ID
     pub fn session_id(&self) -> &str {
         &self.session_id
@@ -175,6 +229,25 @@ impl ServerClient {
     /// Check if authenticated
     pub fn is_authenticated(&self) -> bool {
         self.authenticated
+    }
+
+    /// Read from a specific channel (for monitoring other sessions)
+    pub async fn read_from_channel(&self, session_id: &str, pane_id: &str, channel_type: &str) -> Result<Option<String>, String> {
+        if !self.authenticated {
+            return Err("Not authenticated".to_string());
+        }
+
+        let channel = format!("{}/pane-{}/{}", session_id, pane_id, channel_type);
+        self.send_command(&format!("RPOP {}", channel)).await?;
+        let response = self.read_response().await?;
+
+        if response.starts_with("-ERR") {
+            Ok(None)  // Queue empty
+        } else if let Some(msg) = response.strip_prefix('"').and_then(|s| s.strip_suffix('"')) {
+            Ok(Some(msg.to_string()))
+        } else {
+            Ok(None)
+        }
     }
 
     // Helper methods
