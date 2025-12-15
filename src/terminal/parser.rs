@@ -21,7 +21,40 @@ impl TerminalParser {
     }
 
     pub fn parse(&mut self, data: &[u8]) {
-        // Use the persistent parser to maintain state across calls
+        // Fast path: if data has no escape sequences, process as plain text
+        // This dramatically improves throughput for large file output (cat, tail, etc.)
+        if !data.contains(&b'\x1b') {
+            // Plain text - no ANSI codes, use optimized bulk processing
+            if let Ok(text) = std::str::from_utf8(data) {
+                let mut grid = self.grid.lock().unwrap();
+
+                // Split by newlines and process in bulk
+                let lines: Vec<&str> = text.split('\n').collect();
+                for (idx, line) in lines.iter().enumerate() {
+                    // Handle carriage returns within the line
+                    let parts: Vec<&str> = line.split('\r').collect();
+                    for (i, part) in parts.iter().enumerate() {
+                        if !part.is_empty() {
+                            // Bulk write the text content
+                            grid.bulk_write_text(part);
+                        }
+                        // Add carriage return except after last part
+                        if i < parts.len() - 1 {
+                            grid.carriage_return();
+                        }
+                    }
+
+                    // Add newline after each line except the last (which is empty if text ended with \n)
+                    if idx < lines.len() - 1 {
+                        grid.newline();
+                    }
+                }
+
+                return;
+            }
+        }
+
+        // Slow path: has escape sequences, use full ANSI parser
         for byte in data {
             self.vte_parser.advance(&mut self.performer, *byte);
         }

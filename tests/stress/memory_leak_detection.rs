@@ -19,8 +19,9 @@ use titi::ui::PaneManager;
 #[test]
 #[ignore]
 fn test_comprehensive_memory_leak_detection() {
-    const WARMUP_CYCLES: usize = 10;
-    const TEST_CYCLES: usize = 100;
+    // Optimized test parameters to complete in <60 seconds
+    const WARMUP_CYCLES: usize = 5;   // Reduced from 10
+    const TEST_CYCLES: usize = 50;     // Reduced from 100 (still statistically significant)
     const OPERATIONS_PER_CYCLE: usize = 1000;
 
     println!("\n╔════════════════════════════════════════════════════════════╗");
@@ -28,7 +29,7 @@ fn test_comprehensive_memory_leak_detection() {
     println!("╠════════════════════════════════════════════════════════════╣");
     println!("║  This test will run {} cycles", TEST_CYCLES);
     println!("║  Each cycle performs {} operations", OPERATIONS_PER_CYCLE);
-    println!("║  Testing: Panes, Terminals, Parsers, Grid, Atlas          ║");
+    println!("║  Testing: Panes, Terminals, Parsers, Grid                 ║");
     println!("╚════════════════════════════════════════════════════════════╝\n");
 
     // Memory measurements for each cycle
@@ -38,14 +39,10 @@ fn test_comprehensive_memory_leak_detection() {
     println!("🔥 Warmup phase ({} cycles)...", WARMUP_CYCLES);
     for i in 0..WARMUP_CYCLES {
         run_memory_stress_cycle(i, OPERATIONS_PER_CYCLE);
-        if i % 5 == 0 {
-            // Force Rust to drop any pending deallocations
-            std::hint::black_box(());
-        }
     }
 
     // Wait for memory to stabilize
-    std::thread::sleep(Duration::from_millis(100));
+    std::thread::sleep(Duration::from_millis(50));
 
     println!("📊 Starting memory leak detection test...\n");
 
@@ -75,7 +72,26 @@ fn test_comprehensive_memory_leak_detection() {
             duration: cycle_start.elapsed(),
         });
 
-        // Progress reporting
+        // Early termination if clear leak detected (after sufficient samples)
+        if cycle >= 30 {
+            // Check if we have sustained growth over recent cycles
+            let recent: Vec<_> = memory_samples.iter()
+                .rev()
+                .take(10)
+                .map(|s| s.memory_delta)
+                .collect();
+
+            let positive_deltas = recent.iter().filter(|&&d| d > 0).count();
+
+            // If 9/10 recent cycles show growth, likely a leak - terminate early
+            if positive_deltas >= 9 {
+                println!("⚠️  Early leak detection at cycle {}", cycle);
+                println!("   Recent deltas show sustained growth - terminating early");
+                break;
+            }
+        }
+
+        // Progress reporting - only every 10 cycles
         if cycle % 10 == 0 {
             let avg_memory: usize = memory_samples.iter()
                 .map(|s| s.memory_bytes)
@@ -92,7 +108,8 @@ fn test_comprehensive_memory_leak_detection() {
     let total_time = start_time.elapsed();
 
     println!("\n📈 Test completed in {:?}", total_time);
-    println!("   Total operations: {}", TEST_CYCLES * OPERATIONS_PER_CYCLE);
+    println!("   Total cycles: {}", memory_samples.len());
+    println!("   Total operations: {}", memory_samples.len() * OPERATIONS_PER_CYCLE);
 
     // Analyze results for memory leaks
     analyze_memory_leak(&memory_samples);

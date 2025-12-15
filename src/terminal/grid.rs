@@ -1,5 +1,5 @@
 use super::Color;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CellStyle {
@@ -26,7 +26,7 @@ impl Default for CellStyle {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Cell {
     pub c: char,
     pub style: CellStyle,
@@ -52,8 +52,8 @@ pub struct Grid {
     scroll_top: usize,
     scroll_bottom: usize,
     saved_cursor: (usize, usize),
-    // Scrollback buffer
-    scrollback: Vec<Vec<Cell>>,
+    // Scrollback buffer (VecDeque for O(1) pop_front instead of O(n) remove(0))
+    scrollback: VecDeque<Vec<Cell>>,
     max_scrollback: usize,
     scroll_offset: usize, // 0 = at bottom (current), >0 = scrolled back
     // Dirty tracking for performance
@@ -75,7 +75,7 @@ impl Grid {
             scroll_top: 0,
             scroll_bottom: rows - 1,
             saved_cursor: (0, 0),
-            scrollback: Vec::new(),
+            scrollback: VecDeque::new(),
             max_scrollback: 10000, // Store up to 10000 lines
             scroll_offset: 0,
             dirty_cells: HashSet::new(),
@@ -128,6 +128,51 @@ impl Grid {
             self.dirty_cells.insert((self.cursor_x, self.cursor_y));
         }
         self.cursor_x += 1;
+    }
+
+    /// Bulk write text without per-character dirty tracking (much faster for large outputs)
+    /// Returns number of characters written
+    pub fn bulk_write_text(&mut self, text: &str) -> usize {
+        let start_row = self.cursor_y;
+        let mut chars_written = 0;
+
+        for c in text.chars() {
+            // Check for wrapping before writing
+            if self.cursor_x >= self.cols {
+                self.cursor_x = 0;
+                self.cursor_y += 1;
+                if self.cursor_y > self.scroll_bottom {
+                    self.scroll_up(1);
+                    self.cursor_y = self.scroll_bottom;
+                }
+            }
+
+            let idx = self.cursor_y * self.cols + self.cursor_x;
+            if idx < self.cells.len() {
+                self.cells[idx] = Cell {
+                    c,
+                    style: self.current_style,
+                };
+                chars_written += 1;
+            }
+            self.cursor_x += 1;
+        }
+
+        // Batch mark affected rows as dirty instead of per-character tracking
+        let end_row = self.cursor_y;
+        if end_row - start_row > 5 {
+            // If many rows affected, just mark all dirty
+            self.all_dirty = true;
+        } else {
+            // Mark affected rows
+            for row in start_row..=end_row {
+                for x in 0..self.cols {
+                    self.dirty_cells.insert((x, row));
+                }
+            }
+        }
+
+        chars_written
     }
 
     pub fn newline(&mut self) {
@@ -192,45 +237,52 @@ impl Grid {
     pub fn scroll_up(&mut self, lines: usize) {
         let start_row = self.scroll_top;
         let end_row = self.scroll_bottom + 1;
+        let lines = lines.min(end_row - start_row); // Clamp to region size
 
-        for _ in 0..lines {
-            // Save the top line to scrollback before scrolling
-            if start_row == 0 {
+        if lines == 0 {
+            return;
+        }
+
+        // Save scrolled lines to scrollback (if scrolling from top)
+        if start_row == 0 {
+            for i in 0..lines {
                 let mut line = Vec::with_capacity(self.cols);
-                for x in 0..self.cols {
-                    let idx = start_row * self.cols + x;
-                    if idx < self.cells.len() {
-                        line.push(self.cells[idx].clone());
-                    }
+                let row_start = i * self.cols;
+                let row_end = row_start + self.cols;
+
+                if row_end <= self.cells.len() {
+                    // Bulk copy entire row instead of cell-by-cell
+                    line.extend_from_slice(&self.cells[row_start..row_end]);
                 }
 
-                // Add to scrollback
-                self.scrollback.push(line);
+                self.scrollback.push_back(line);
 
-                // Limit scrollback size
+                // O(1) pop from front instead of O(n) remove(0)
                 if self.scrollback.len() > self.max_scrollback {
-                    self.scrollback.remove(0);
+                    self.scrollback.pop_front();
                 }
             }
+        }
 
-            // Move rows up
-            for y in start_row..(end_row - 1) {
-                for x in 0..self.cols {
-                    let src_idx = (y + 1) * self.cols + x;
-                    let dst_idx = y * self.cols + x;
-                    if src_idx < self.cells.len() && dst_idx < self.cells.len() {
-                        self.cells[dst_idx] = self.cells[src_idx].clone();
-                    }
-                }
-            }
+        // Bulk move rows using copy_within (single operation instead of nested loops!)
+        // This replaces the O(n³) nested loop with O(n) operation
+        let src_start = (start_row + lines) * self.cols;
+        let src_end = end_row * self.cols;
+        let dst_start = start_row * self.cols;
 
-            // Clear bottom row
-            let bottom_row = end_row - 1;
-            for x in 0..self.cols {
-                let idx = bottom_row * self.cols + x;
-                if idx < self.cells.len() {
-                    self.cells[idx] = Cell::default();
-                }
+        if src_end <= self.cells.len() {
+            // Single memory copy operation - MUCH faster than nested loops
+            self.cells.copy_within(src_start..src_end, dst_start);
+        }
+
+        // Clear bottom rows (bulk operation)
+        let clear_start = (end_row - lines) * self.cols;
+        let clear_end = end_row * self.cols;
+
+        if clear_end <= self.cells.len() {
+            // Bulk clear instead of cell-by-cell
+            for cell in &mut self.cells[clear_start..clear_end] {
+                *cell = Cell::default();
             }
         }
 
