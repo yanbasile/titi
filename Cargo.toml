@@ -78,6 +78,31 @@ path = "tests/regression.rs"
 name = "server_integration_tests"
 path = "tests/integration/server_integration_tests.rs"
 
+# Battle tests
+[[test]]
+name = "battle_multi_agent"
+path = "tests/battle/multi_agent_orchestration.rs"
+
+[[test]]
+name = "battle_real_apps"
+path = "tests/battle/real_app_integration.rs"
+
+[[test]]
+name = "battle_network"
+path = "tests/battle/network_disruption.rs"
+
+[[test]]
+name = "battle_resources"
+path = "tests/battle/resource_exhaustion.rs"
+
+[[test]]
+name = "battle_security"
+path = "tests/battle/security_edge_cases.rs"
+
+[[test]]
+name = "battle_stability"
+path = "tests/battle/long_running_stability.rs"
+
 [profile.release]
 opt-level = 3
 lto = true
