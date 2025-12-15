@@ -211,11 +211,11 @@ fn test_large_ansi_sequences() -> Result<usize, String> {
     let grid = Arc::new(Mutex::new(Grid::new(80, 24)));
     let mut parser = TerminalParser::new(grid);
 
-    // Create large ANSI sequence (10 KB)
+    // Create large ANSI sequence (10 KB+)
     let mut large_sequence = String::new();
 
-    // Add many color changes
-    for i in 0..500 {
+    // Add many color changes (need ~700 iterations to exceed 10KB)
+    for i in 0..700 {
         large_sequence.push_str(&format!("\x1b[{}mColor {} ", 30 + (i % 8), i));
     }
     large_sequence.push_str("\n");
