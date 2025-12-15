@@ -3,7 +3,7 @@
 //! A standalone server that enables programmatic control of terminal sessions.
 
 use std::process;
-use titi::server::{TcpServer, TokenAuth};
+use titi::redititi_server::{RedititiTcpServer, TokenAuth};
 
 #[tokio::main]
 async fn main() {
@@ -72,7 +72,7 @@ async fn main() {
 
     // Create and run server
     let addr = format!("127.0.0.1:{}", port);
-    let server = TcpServer::new(addr, auth);
+    let server = RedititiTcpServer::new(addr, auth);
 
     if let Err(e) = server.run().await {
         eprintln!("Server error: {}", e);
