@@ -163,7 +163,7 @@ async fn test_headless_interactive_prompts() {
     client.inject("echo 'Select option: 1) Option A, 2) Option B, 3) Option C'")
         .await
         .expect("Command failed");
-    sleep(Duration::from_millis(50)).await);
+    sleep(Duration::from_millis(50)).await;
     client.inject("2").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
