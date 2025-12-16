@@ -155,10 +155,11 @@ async fn run_agent_simulation(
     // Simulate agent-specific workload
     match agent_id {
         0 => {
-            // Agent 1: File monitoring simulation (continuous output)
+            // Agent 1: File monitoring simulation (continuous output via pub/sub)
             for i in 0..50 {
-                let log_line = format!("LOG [{}] File changed: /path/to/file{}.txt\n", agent_name, i);
-                client.inject_command(&session_id, &pane_id, &log_line).await?;
+                let log_line = format!("LOG [{}] File changed: /path/to/file{}.txt", agent_name, i);
+                let channel = format!("{}/pane-{}/output", session_id, pane_id);
+                client.publish_to_channel(&channel, &log_line).await?;
                 commands_sent += 1;
 
                 // Read output
@@ -173,7 +174,8 @@ async fn run_agent_simulation(
             // Agent 2: Build system simulation (batch output)
             for i in 0..30 {
                 let build_log = format!("Compiling module_{}.rs... [{}] OK\n", i, agent_name);
-                client.inject_command(&session_id, &pane_id, &build_log).await?;
+                let channel = format!("{}/pane-{}/output", session_id, pane_id);
+                client.publish_to_channel(&channel, &build_log).await?;
                 commands_sent += 1;
 
                 if let Some(_msg) = client.read_output().await? {
@@ -187,7 +189,8 @@ async fn run_agent_simulation(
             // Agent 3: Test runner simulation (streaming results)
             for i in 0..40 {
                 let test_output = format!("test test_case_{} ... [{}] ok\n", i, agent_name);
-                client.inject_command(&session_id, &pane_id, &test_output).await?;
+                let channel = format!("{}/pane-{}/output", session_id, pane_id);
+                client.publish_to_channel(&channel, &test_output).await?;
                 commands_sent += 1;
 
                 if let Some(_msg) = client.read_output().await? {
@@ -201,7 +204,8 @@ async fn run_agent_simulation(
             // Agent 4: Log aggregation simulation (grep/awk patterns)
             for i in 0..35 {
                 let grep_result = format!("[{}] ERROR found at line {}: critical failure\n", agent_name, i * 10);
-                client.inject_command(&session_id, &pane_id, &grep_result).await?;
+                let channel = format!("{}/pane-{}/output", session_id, pane_id);
+                client.publish_to_channel(&channel, &grep_result).await?;
                 commands_sent += 1;
 
                 if let Some(_msg) = client.read_output().await? {
@@ -223,7 +227,8 @@ async fn run_agent_simulation(
 
             for (i, cmd) in commands.iter().cycle().take(25).enumerate() {
                 let shell_output = format!("[{}] $ {} \nOutput for command {}\n", agent_name, cmd, i);
-                client.inject_command(&session_id, &pane_id, &shell_output).await?;
+                let channel = format!("{}/pane-{}/output", session_id, pane_id);
+                client.publish_to_channel(&channel, &shell_output).await?;
                 commands_sent += 1;
 
                 if let Some(_msg) = client.read_output().await? {

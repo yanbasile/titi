@@ -156,8 +156,9 @@ async fn test_long_running_stability() {
         Err(e) => panic!("Output channel error: {}", e),
     }
 
-    // Verify session is still usable (no list_sessions in current API)
-    match client.inject_command(&session_id, &pane_id, "persistence test\n").await {
+    // Verify session is still usable by publishing to channel
+    let test_channel = format!("{}/pane-{}/output", session_id, pane_id);
+    match client.publish_to_channel(&test_channel, "persistence test").await {
         Ok(()) => println!("   ✅ Session persisted throughout test"),
         Err(e) => panic!("Session became unusable: {}", e),
     }
