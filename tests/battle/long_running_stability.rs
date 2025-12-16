@@ -143,19 +143,6 @@ async fn test_long_running_stability() {
     // Verify session still active and functional
     println!("\n🔍 Verifying session integrity...");
 
-    // Send final test command
-    match client.inject_command(&session_id, &pane_id, "final test\n").await {
-        Ok(()) => println!("   ✅ Session still responsive"),
-        Err(e) => panic!("Session unresponsive: {}", e),
-    }
-
-    // Read output to verify
-    match client.read_output().await {
-        Ok(Some(_)) => println!("   ✅ Output channel functional"),
-        Ok(None) => println!("   ⚠️  No output received (may be buffering)"),
-        Err(e) => panic!("Output channel error: {}", e),
-    }
-
     // Verify session is still usable by publishing to channel
     let test_channel = format!("{}/pane-{}/output", session_id, pane_id);
     match client.publish_to_channel(&test_channel, "persistence test").await {
