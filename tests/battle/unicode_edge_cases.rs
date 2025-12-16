@@ -3,7 +3,7 @@
 // Tests various Unicode edge cases and special character handling
 
 use std::sync::{Arc, Mutex};
-use titi::terminal::{Grid, parser::TerminalParser};
+use titi::terminal::{Grid, TerminalParser};
 
 #[test]
 #[ignore]

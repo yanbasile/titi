@@ -5,8 +5,8 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tokio::time::sleep;
-use titi::terminal::{Grid, parser::TerminalParser};
-use titi::redititi_server::{RedititiTcpServer, auth::TokenAuth};
+use titi::terminal::{Grid, TerminalParser};
+use titi::redititi_server::{RedititiTcpServer, TokenAuth};
 use titi::server_client::ServerClient;
 
 #[tokio::test]
