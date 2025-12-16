@@ -159,6 +159,10 @@ path = "tests/headless/scenario_unicode_torture.rs"
 name = "headless_scenario_resource_leak"
 path = "tests/headless/scenario_resource_leak.rs"
 
+[[test]]
+name = "headless_verify_basic"
+path = "tests/headless/verify_basic.rs"
+
 [profile.release]
 opt-level = 3
 lto = true
