@@ -255,7 +255,7 @@ fn test_parser_sgr_256_color() {
     // 256-color foreground: ESC[38;5;COLORm
     parser.parse(b"\x1b[38;5;196mX"); // Bright red (color 196)
 
-    let grid = grid.lock().unwrap();
+    let _grid = grid.lock().unwrap();
     // Should map to an RGB or named color
     // The exact color depends on the 256-color palette implementation
 }
@@ -280,7 +280,7 @@ fn test_parser_sgr_rgb_color() {
 
 #[test]
 fn test_parser_scroll_region() {
-    let (mut parser, grid) = create_parser();
+    let (mut parser, _grid) = create_parser();
 
     // Set scroll region from row 5 to row 15
     parser.parse(b"\x1b[5;15r");

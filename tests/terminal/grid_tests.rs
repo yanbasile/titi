@@ -1,4 +1,4 @@
-use titi::terminal::{Cell, CellStyle, Color, Grid};
+use titi::terminal::{CellStyle, Color, Grid};
 
 #[test]
 fn test_grid_new_initializes_with_empty_cells() {

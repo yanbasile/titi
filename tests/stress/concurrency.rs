@@ -124,8 +124,8 @@ fn test_stress_many_panes() {
 #[ignore]
 fn test_stress_concurrent_parser_access() {
     let grid = Arc::new(Mutex::new(Grid::new(80, 24)));
-    let parser1 = TerminalParser::new(grid.clone());
-    let parser2 = TerminalParser::new(grid.clone());
+    let _parser1 = TerminalParser::new(grid.clone());
+    let _parser2 = TerminalParser::new(grid.clone());
 
     // Note: This test demonstrates the architecture but actual concurrent
     // access would require parsers to be Send + Sync which may need refactoring
@@ -136,7 +136,7 @@ fn test_stress_concurrent_parser_access() {
     let start = Instant::now();
 
     // Simulate interleaved access
-    for i in 0..1000 {
+    for _ in 0..1000 {
         {
             let mut g = grid_clone1.lock().unwrap();
             g.put_char('A');
@@ -287,7 +287,7 @@ fn test_stress_concurrent_grid_operations() {
             thread::spawn(move || {
                 for i in 0..operations_per_thread {
                     let mut g = grid.lock().unwrap();
-                    g.set_cursor((i % 80), (i % 24));
+                    g.set_cursor(i % 80, i % 24);
                     g.put_char(('A' as u8 + (idx % 26) as u8) as char);
 
                     if i % 100 == 0 {

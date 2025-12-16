@@ -26,7 +26,7 @@
 //!
 //! Run with: `cargo test --test dirty_tracking_tests`
 
-use titi::terminal::{Grid, CellStyle, Color};
+use titi::terminal::Grid;
 
 #[test]
 fn test_initial_state_is_dirty() {

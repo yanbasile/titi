@@ -7,14 +7,14 @@ use std::sync::{Arc, Mutex};
 use wgpu::util::DeviceExt;
 
 pub struct TextRenderer {
-    font_system: FontSystem,
-    swash_cache: SwashCache,
+    _font_system: FontSystem,
+    _swash_cache: SwashCache,
     cell_width: f32,
     cell_height: f32,
-    font_size: f32,
+    _font_size: f32,
     glyph_atlas: GlyphAtlas,
     render_pipeline: wgpu::RenderPipeline,
-    uniform_buffer: wgpu::Buffer,
+    _uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
     texture_bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
@@ -222,14 +222,14 @@ impl TextRenderer {
         });
 
         Ok(Self {
-            font_system,
-            swash_cache,
+            _font_system: font_system,
+            _swash_cache: swash_cache,
             cell_width,
             cell_height,
-            font_size,
+            _font_size: font_size,
             glyph_atlas,
             render_pipeline,
-            uniform_buffer,
+            _uniform_buffer: uniform_buffer,
             uniform_bind_group,
             texture_bind_group,
             vertex_buffer,

@@ -18,7 +18,7 @@ static NEXT_CONN_ID: AtomicU64 = AtomicU64::new(1);
 pub struct RedititiTcpServer {
     addr: String,
     auth: Arc<TokenAuth>,
-    registry: Arc<RwLock<Registry>>,
+    _registry: Arc<RwLock<Registry>>,
     channels: Arc<ChannelManager>,
     command_handler: Arc<CommandHandler>,
 }
@@ -33,7 +33,7 @@ impl RedititiTcpServer {
         Self {
             addr,
             auth,
-            registry,
+            _registry: registry,
             channels,
             command_handler,
         }

@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
-use titi::terminal::{Grid, Terminal, TerminalParser};
+use titi::terminal::{Grid, TerminalParser};
 use titi::ui::PaneManager;
 
 /// Comprehensive memory leak detection test
@@ -66,10 +66,10 @@ fn test_comprehensive_memory_leak_detection() {
 
         let memory_delta = memory_after as i64 - memory_before as i64;
         memory_samples.push(MemorySample {
-            cycle,
+            _cycle: cycle,
             memory_bytes: memory_after,
             memory_delta,
-            duration: cycle_start.elapsed(),
+            _duration: cycle_start.elapsed(),
         });
 
         // Early termination if clear leak detected (after sufficient samples)
@@ -118,10 +118,10 @@ fn test_comprehensive_memory_leak_detection() {
 /// Represents a memory measurement at a point in time
 #[derive(Debug, Clone)]
 struct MemorySample {
-    cycle: usize,
+    _cycle: usize,
     memory_bytes: usize,
     memory_delta: i64,
-    duration: Duration,
+    _duration: Duration,
 }
 
 /// Run one cycle of memory-intensive operations
@@ -433,10 +433,10 @@ fn test_intentional_leak_detection() {
 
         let memory_estimate = leaked_memory.len() * 10 * 1024;
         samples.push(MemorySample {
-            cycle,
+            _cycle: cycle,
             memory_bytes: memory_estimate,
             memory_delta: 10 * 1024,
-            duration: Duration::from_millis(10),
+            _duration: Duration::from_millis(10),
         });
     }
 

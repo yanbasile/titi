@@ -15,7 +15,7 @@ pub struct Message {
 }
 
 struct Channel {
-    name: String,
+    _name: String,
     subscribers: Vec<ConnectionId>,
     queue: VecDeque<Message>, // FIFO queue for messages
 }
@@ -23,7 +23,7 @@ struct Channel {
 impl Channel {
     fn new(name: String) -> Self {
         Self {
-            name,
+            _name: name,
             subscribers: Vec::new(),
             queue: VecDeque::new(),
         }

@@ -290,7 +290,7 @@ impl ServerClient {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    
 
     // Note: These tests require a running redititi server
     // For now, we test the API structure

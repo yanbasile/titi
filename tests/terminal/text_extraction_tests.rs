@@ -34,7 +34,7 @@
 //!
 //! Run with: `cargo test --test text_extraction_tests`
 
-use titi::terminal::{Grid, Cell};
+use titi::terminal::Grid;
 
 fn get_visible_text_from_grid(grid: &Grid) -> String {
     let (cols, rows) = grid.size();

@@ -306,8 +306,8 @@ async fn test_output_capture() {
     terminal_client.create_session(Some("output-test")).await.expect("Session failed");
     terminal_client.create_pane(Some("pane1")).await.expect("Pane failed");
 
-    let session_id = terminal_client.session_id().to_string();
-    let pane_id = terminal_client.pane_id().to_string();
+    let _session_id = terminal_client.session_id().to_string();
+    let _pane_id = terminal_client.pane_id().to_string();
 
     // Terminal publishes output
     terminal_client.publish_output("Line 1: Terminal output")
