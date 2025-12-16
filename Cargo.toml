@@ -111,6 +111,54 @@ path = "tests/battle/unicode_edge_cases.rs"
 name = "battle_timing"
 path = "tests/battle/timing_edge_cases.rs"
 
+# ============================================================================
+# HEADLESS MODE TEST SUITE
+# ============================================================================
+
+# Stress Tests (5 tests)
+
+[[test]]
+name = "headless_stress_command_injection"
+path = "tests/headless/stress_command_injection.rs"
+
+[[test]]
+name = "headless_stress_large_output"
+path = "tests/headless/stress_large_output.rs"
+
+[[test]]
+name = "headless_stress_multi_instance"
+path = "tests/headless/stress_multi_instance.rs"
+
+[[test]]
+name = "headless_stress_long_running"
+path = "tests/headless/stress_long_running.rs"
+
+[[test]]
+name = "headless_stress_rapid_lifecycle"
+path = "tests/headless/stress_rapid_lifecycle.rs"
+
+# Complex Scenario Tests (5 tests)
+
+[[test]]
+name = "headless_scenario_network_resilience"
+path = "tests/headless/scenario_network_resilience.rs"
+
+[[test]]
+name = "headless_scenario_multi_agent"
+path = "tests/headless/scenario_multi_agent.rs"
+
+[[test]]
+name = "headless_scenario_interactive_programs"
+path = "tests/headless/scenario_interactive_programs.rs"
+
+[[test]]
+name = "headless_scenario_unicode_torture"
+path = "tests/headless/scenario_unicode_torture.rs"
+
+[[test]]
+name = "headless_scenario_resource_leak"
+path = "tests/headless/scenario_resource_leak.rs"
+
 [profile.release]
 opt-level = 3
 lto = true

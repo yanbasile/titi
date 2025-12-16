@@ -97,8 +97,7 @@ impl TokenAuth {
         &self.token_path
     }
 
-    /// Create TokenAuth from a specific token (for testing)
-    #[cfg(test)]
+    /// Create TokenAuth from a specific token (for testing/development)
     pub fn from_token(token: String) -> Result<Self, AuthError> {
         Ok(Self {
             token,

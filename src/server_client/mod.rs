@@ -193,6 +193,13 @@ impl ServerClient {
         }
     }
 
+    /// Inject command into this client's own terminal (convenience method for headless mode)
+    pub async fn inject(&mut self, command: &str) -> Result<(), String> {
+        let session_id = self.session_id.clone();
+        let pane_id = self.pane_id.clone();
+        self.inject_command(&session_id, &pane_id, command).await
+    }
+
     /// Subscribe to output channel to read terminal output
     pub async fn subscribe_output(&mut self) -> Result<(), String> {
         if !self.authenticated {
