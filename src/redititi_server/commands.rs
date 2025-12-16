@@ -81,7 +81,7 @@ impl CommandHandler {
                 }
             }
             "PUBLISH" => {
-                if let (Some(channel), Some(message)) = (args.get(0), args.get(1)) {
+                if let (Some(channel), Some(_message)) = (args.get(0), args.get(1)) {
                     let content = args[1..].join(" ");
                     self.handle_publish(channel, &content).await
                 } else {
@@ -91,7 +91,7 @@ impl CommandHandler {
 
             // Command injection
             "INJECT" => {
-                if let (Some(target), Some(command)) = (args.get(0), args.get(1)) {
+                if let (Some(target), Some(_command)) = (args.get(0), args.get(1)) {
                     let cmd = args[1..].join(" ");
                     let mode = args.last().and_then(|m| {
                         if m == "NOWAIT" || m == "QUEUE" || m == "BATCH" {
@@ -205,7 +205,7 @@ impl CommandHandler {
         Response::OkWithData(format!("published to {} subscribers", count))
     }
 
-    async fn handle_inject(&self, target: &str, command: &str, mode: Option<&str>) -> Response {
+    async fn handle_inject(&self, target: &str, command: &str, _mode: Option<&str>) -> Response {
         // Parse target (session-id/pane-id)
         let parts: Vec<&str> = target.split('/').collect();
         if parts.len() != 2 {

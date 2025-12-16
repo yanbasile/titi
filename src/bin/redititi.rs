@@ -13,7 +13,7 @@ async fn main() {
     // Parse command-line arguments
     let args: Vec<String> = std::env::args().collect();
     let mut port = 6379;
-    let mut token_file = None;
+    let mut _token_file: Option<String> = None;
 
     let mut i = 1;
     while i < args.len() {
@@ -32,7 +32,7 @@ async fn main() {
             }
             "--token-file" => {
                 if i + 1 < args.len() {
-                    token_file = Some(args[i + 1].clone());
+                    _token_file = Some(args[i + 1].clone());
                     i += 2;
                 } else {
                     eprintln!("--token-file requires a value");

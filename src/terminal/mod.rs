@@ -44,8 +44,8 @@ pub struct Terminal {
     pub grid: Arc<Mutex<Grid>>,
     pty: Pty,
     parser: TerminalParser,
-    event_tx: Sender<TerminalEvent>,
-    event_rx: Receiver<TerminalEvent>,
+    _event_tx: Sender<TerminalEvent>,
+    _event_rx: Receiver<TerminalEvent>,
     server_client: Option<Arc<RwLock<ServerClient>>>,
     publish_output: bool,
 }
@@ -61,8 +61,8 @@ impl Terminal {
             grid,
             pty,
             parser,
-            event_tx,
-            event_rx,
+            _event_tx: event_tx,
+            _event_rx: event_rx,
             server_client: None,
             publish_output: false,
         })
@@ -83,8 +83,8 @@ impl Terminal {
             grid,
             pty,
             parser,
-            event_tx,
-            event_rx,
+            _event_tx: event_tx,
+            _event_rx: event_rx,
             server_client: Some(Arc::new(RwLock::new(server_client))),
             publish_output: true,
         })
