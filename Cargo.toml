@@ -103,6 +103,14 @@ path = "tests/battle/security_edge_cases.rs"
 name = "battle_stability"
 path = "tests/battle/long_running_stability.rs"
 
+[[test]]
+name = "battle_unicode"
+path = "tests/battle/unicode_edge_cases.rs"
+
+[[test]]
+name = "battle_timing"
+path = "tests/battle/timing_edge_cases.rs"
+
 [profile.release]
 opt-level = 3
 lto = true
