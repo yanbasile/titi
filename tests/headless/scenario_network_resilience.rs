@@ -53,7 +53,7 @@ async fn test_headless_server_restart() {
 
     // Send some commands
     for i in 0..5 {
-        let cmd = format!("echo 'Before restart {}'\n", i);
+        let cmd = format!("echo 'Before restart {}'", i);
         client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
     }
 
@@ -95,7 +95,7 @@ async fn test_headless_server_restart() {
                         println!("   ✅ New pane created");
 
                         // Send command to verify everything works
-                        if new_client.inject_command("echo 'After restart'\n").await.is_ok() {
+                        if new_client.inject("echo 'After restart'").await.is_ok() {
                             println!("   ✅ Commands working after restart");
                         }
                     }
@@ -139,7 +139,7 @@ async fn test_headless_connection_timeout() {
     let mut successes = 0;
 
     for i in 0..20 {
-        let cmd = format!("echo 'Timeout test {}'\n", i);
+        let cmd = format!("echo 'Timeout test {}'", i);
 
         let result = timeout(Duration::from_secs(2), client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd)).await;
 
@@ -197,7 +197,7 @@ async fn test_headless_slow_network_simulation() {
         sleep(network_delay).await;
 
         let start = Instant::now();
-        let cmd = format!("echo 'Slow network test {}'\n", i);
+        let cmd = format!("echo 'Slow network test {}'", i);
         client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
         let latency = start.elapsed();
 
@@ -266,7 +266,7 @@ async fn test_headless_graceful_disconnect() {
 
     // Send some commands
     for i in 0..10 {
-        let cmd = format!("echo 'Test {}'\n", i);
+        let cmd = format!("echo 'Test {}'", i);
         client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
     }
 

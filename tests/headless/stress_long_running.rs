@@ -56,8 +56,8 @@ async fn test_headless_5_minute_stability() {
 
     while start.elapsed() < test_duration {
         // Send a command every 5 seconds
-        let cmd = "echo 'Heartbeat check'\n";
-        client.inject_command(cmd).await.expect("Inject failed");
+        let cmd = "echo 'Heartbeat check'";
+        client.inject(cmd).await.expect("Inject failed");
         command_count += 1;
 
         // Report progress every minute
@@ -113,7 +113,7 @@ async fn test_headless_sustained_activity_30min() {
 
     while start.elapsed() < test_duration {
         // Send command with some output
-        let cmd = format!("echo 'Sustained activity check {}'\n", command_count);
+        let cmd = format!("echo 'Sustained activity check {}'", command_count);
         client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Inject failed");
         command_count += 1;
 
@@ -169,7 +169,7 @@ async fn test_headless_memory_stability() {
     while start.elapsed() < test_duration {
         // Generate some load
         for i in 0..10 {
-            let cmd = format!("echo 'Memory test iteration {}'\n", command_count * 10 + i);
+            let cmd = format!("echo 'Memory test iteration {}'", command_count * 10 + i);
             client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Inject failed");
         }
         command_count += 10;
@@ -267,8 +267,8 @@ async fn test_headless_no_activity_stability() {
     while start.elapsed() < test_duration {
         sleep(Duration::from_secs(60)).await;
 
-        let cmd = "echo 'Heartbeat'\n";
-        client.inject_command(cmd).await.expect("Inject failed");
+        let cmd = "echo 'Heartbeat'";
+        client.inject(cmd).await.expect("Inject failed");
         heartbeat_count += 1;
 
         let elapsed_mins = start.elapsed().as_secs() / 60;

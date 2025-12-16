@@ -58,7 +58,7 @@ async fn test_server_client_basic_communication() {
 
     // Test inject command (this will publish to channel even without PTY)
     let result = client
-        .inject(&"echo 'Hello World'\n".to_string())
+        .inject(&"echo 'Hello World'".to_string())
         .await;
 
     match result {

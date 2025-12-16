@@ -97,7 +97,7 @@ async fn test_headless_file_descriptor_leak() {
 
         // Send some commands
         for j in 0..5 {
-            let cmd = format!("echo 'FD test {} cmd {}'\n", i, j);
+            let cmd = format!("echo 'FD test {} cmd {}'", i, j);
             client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
         }
 
@@ -169,7 +169,7 @@ async fn test_headless_memory_leak_detection() {
 
         // Generate some load
         for j in 0..20 {
-            let cmd = format!("echo 'Memory test {} - {}'\n", i, j);
+            let cmd = format!("echo 'Memory test {} - {}'", i, j);
             client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
         }
 
@@ -246,7 +246,7 @@ async fn test_headless_connection_cleanup() {
             .expect("Pane failed");
 
         // Quick command
-        client.inject_command("echo 'test'\n").await.expect("Command failed");
+        client.inject("echo 'test'").await.expect("Command failed");
 
         // Cleanup
         drop(client);
@@ -325,7 +325,7 @@ async fn test_headless_session_pane_cleanup() {
                 .expect("Pane failed");
 
             // Send command to each pane
-            client.inject_command("echo 'test'\n").await.expect("Command failed");
+            client.inject("echo 'test'").await.expect("Command failed");
         }
 
         if session_id % 5 == 0 {
@@ -400,7 +400,7 @@ async fn test_headless_sustained_load_stability() {
 
         // Do some work
         for i in 0..10 {
-            let cmd = format!("echo 'Sustained load {} - {}'\n", cycle_count, i);
+            let cmd = format!("echo 'Sustained load {} - {}'", cycle_count, i);
             client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
         }
 

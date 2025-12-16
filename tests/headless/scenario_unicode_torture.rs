@@ -63,7 +63,7 @@ async fn test_headless_emoji_and_symbols() {
     ];
 
     for (i, test) in emoji_tests.iter().enumerate() {
-        let cmd = format!("echo '{}'\n", test);
+        let cmd = format!("echo '{}'", test);
         client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
         println!("   Sent: {}", test);
         sleep(Duration::from_millis(50)).await;
@@ -110,7 +110,7 @@ async fn test_headless_multibyte_characters() {
     ];
 
     for (lang, text) in language_tests.iter() {
-        let cmd = format!("echo '{}'\n", text);
+        let cmd = format!("echo '{}'", text);
         client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
         println!("   {} : {}", lang, text);
         sleep(Duration::from_millis(100)).await;
@@ -140,44 +140,44 @@ async fn test_headless_ansi_color_codes() {
 
     // Test various color codes
     println!("   Testing basic colors");
-    client.inject_command("echo '\\x1b[31mRed text\\x1b[0m'\n")
+    client.inject("echo '\\x1b[31mRed text\\x1b[0m'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
-    client.inject_command("echo '\\x1b[32mGreen text\\x1b[0m'\n")
+    client.inject("echo '\\x1b[32mGreen text\\x1b[0m'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
-    client.inject_command("echo '\\x1b[33mYellow text\\x1b[0m'\n")
+    client.inject("echo '\\x1b[33mYellow text\\x1b[0m'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
-    client.inject_command("echo '\\x1b[34mBlue text\\x1b[0m'\n")
+    client.inject("echo '\\x1b[34mBlue text\\x1b[0m'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     println!("   Testing bold and styles");
-    client.inject_command("echo '\\x1b[1mBold text\\x1b[0m'\n")
+    client.inject("echo '\\x1b[1mBold text\\x1b[0m'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
-    client.inject_command("echo '\\x1b[4mUnderline text\\x1b[0m'\n")
+    client.inject("echo '\\x1b[4mUnderline text\\x1b[0m'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     println!("   Testing combined styles");
-    client.inject_command("echo '\\x1b[1;31mBold Red\\x1b[0m'\n")
+    client.inject("echo '\\x1b[1;31mBold Red\\x1b[0m'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
-    client.inject_command("echo '\\x1b[4;32mUnderline Green\\x1b[0m'\n")
+    client.inject("echo '\\x1b[4;32mUnderline Green\\x1b[0m'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
@@ -208,42 +208,42 @@ async fn test_headless_cursor_movement() {
     println!("   Testing cursor positioning");
 
     // Move cursor to (10, 5)
-    client.inject_command("echo '\\x1b[10;5HPosition (10,5)'\n")
+    client.inject("echo '\\x1b[10;5HPosition (10,5)'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     // Move cursor up
-    client.inject_command("echo '\\x1b[3AUp 3 lines'\n")
+    client.inject("echo '\\x1b[3AUp 3 lines'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     // Move cursor down
-    client.inject_command("echo '\\x1b[2BDown 2 lines'\n")
+    client.inject("echo '\\x1b[2BDown 2 lines'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     // Move cursor right
-    client.inject_command("echo '\\x1b[5CRight 5 cols'\n")
+    client.inject("echo '\\x1b[5CRight 5 cols'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     // Move cursor left
-    client.inject_command("echo '\\x1b[3DLeft 3 cols'\n")
+    client.inject("echo '\\x1b[3DLeft 3 cols'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     // Save and restore cursor position
-    client.inject_command("echo '\\x1b[sSave position'\n")
+    client.inject("echo '\\x1b[sSave position'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
-    client.inject_command("echo '\\x1b[uRestore position'\n")
+    client.inject("echo '\\x1b[uRestore position'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
@@ -273,34 +273,34 @@ async fn test_headless_screen_manipulation() {
     // Fill screen with content
     println!("   Filling screen");
     for i in 0..24 {
-        let cmd = format!("echo 'Line {}'\n", i);
+        let cmd = format!("echo 'Line {}'", i);
         client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
     }
     sleep(Duration::from_millis(200)).await;
 
     // Clear screen
     println!("   Clearing screen");
-    client.inject_command("echo '\\x1b[2J'\n")
+    client.inject("echo '\\x1b[2J'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(200)).await;
 
     // Clear to end of line
     println!("   Testing line clearing");
-    client.inject_command("echo 'This will be cleared...\\x1b[K'\n")
+    client.inject("echo 'This will be cleared...\\x1b[K'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     // Scroll up
     println!("   Testing scroll");
-    client.inject_command("echo '\\x1b[S'\n")
+    client.inject("echo '\\x1b[S'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     // Scroll down
-    client.inject_command("echo '\\x1b[T'\n")
+    client.inject("echo '\\x1b[T'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
@@ -340,7 +340,7 @@ async fn test_headless_mixed_content_stress() {
     ];
 
     for (i, content) in mixed_content.iter().enumerate() {
-        let cmd = format!("echo '{}'\n", content);
+        let cmd = format!("echo '{}'", content);
         client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
         println!("   Line {}: {}", i + 1, content);
         sleep(Duration::from_millis(100)).await;
@@ -349,8 +349,8 @@ async fn test_headless_mixed_content_stress() {
     // Rapid mixed content
     println!("   Sending rapid mixed content burst");
     for _ in 0..20 {
-        let cmd = "echo '🔥 快速 FAST \\x1b[31mRED\\x1b[0m ✨'\n";
-        client.inject_command(cmd).await.expect("Command failed");
+        let cmd = "echo '🔥 快速 FAST \\x1b[31mRED\\x1b[0m ✨'";
+        client.inject(cmd).await.expect("Command failed");
     }
 
     sleep(Duration::from_millis(500)).await;

@@ -52,26 +52,26 @@ async fn test_headless_vim_like_modal_editing() {
     // Note: This doesn't actually launch vim, but simulates the command patterns
 
     // Start "editor" (simulated)
-    client.inject_command("echo 'Entering editor mode'\n").await.expect("Command failed");
+    client.inject("echo 'Entering editor mode'").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     // Simulate insert mode
     println!("   Simulating insert mode");
-    client.inject_command("echo 'INSERT MODE'\n").await.expect("Command failed");
-    client.inject_command("echo 'Line 1: Hello'\n").await.expect("Command failed");
-    client.inject_command("echo 'Line 2: World'\n").await.expect("Command failed");
+    client.inject("echo 'INSERT MODE'").await.expect("Command failed");
+    client.inject("echo 'Line 1: Hello'").await.expect("Command failed");
+    client.inject("echo 'Line 2: World'").await.expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     // Simulate escape to command mode
     println!("   Simulating command mode");
-    client.inject_command("echo 'COMMAND MODE'\n").await.expect("Command failed");
+    client.inject("echo 'COMMAND MODE'").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     // Simulate commands
-    client.inject_command("echo ':w (save)'\n").await.expect("Command failed");
+    client.inject("echo ':w (save)'").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
-    client.inject_command("echo ':q (quit)'\n").await.expect("Command failed");
+    client.inject("echo ':q (quit)'").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     println!("   Simulated modal editor workflow");
@@ -104,14 +104,14 @@ async fn test_headless_paged_output() {
         println!("   Page {}", page + 1);
 
         for line in 0..24 {
-            let cmd = format!("echo 'Page {} Line {}'\n", page + 1, line + 1);
+            let cmd = format!("echo 'Page {} Line {}'", page + 1, line + 1);
             client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
         }
 
         // Simulate pagination control
         if page < 2 {
             sleep(Duration::from_millis(100)).await;
-            client.inject_command("echo '[Press SPACE for next page]'\n")
+            client.inject("echo '[Press SPACE for next page]'")
                 .await
                 .expect("Command failed");
             sleep(Duration::from_millis(100)).await;
@@ -144,35 +144,35 @@ async fn test_headless_interactive_prompts() {
 
     // Simulate various interactive prompts
     println!("   Testing Y/N prompts");
-    client.inject_command("echo 'Do you want to continue? (y/n)'\n")
+    client.inject("echo 'Do you want to continue? (y/n)'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
-    client.inject_command("y\n").await.expect("Command failed");
+    client.inject("y").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     println!("   Testing confirmation prompts");
-    client.inject_command("echo 'Are you sure? [Y/n]'\n")
+    client.inject("echo 'Are you sure? [Y/n]'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
-    client.inject_command("Y\n").await.expect("Command failed");
+    client.inject("Y").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     println!("   Testing numbered selection");
-    client.inject_command("echo 'Select option: 1) Option A, 2) Option B, 3) Option C'\n")
+    client.inject("echo 'Select option: 1) Option A, 2) Option B, 3) Option C'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await);
-    client.inject_command("2\n").await.expect("Command failed");
+    client.inject("2").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     println!("   Testing text input prompts");
-    client.inject_command("echo 'Enter your name:'\n")
+    client.inject("echo 'Enter your name:'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
-    client.inject_command("TestAgent\n").await.expect("Command failed");
+    client.inject("TestAgent").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     println!("✅ Interactive prompts test complete");
@@ -199,31 +199,31 @@ async fn test_headless_command_line_tools() {
 
     // Test common CLI tools
     println!("   Testing git-like commands");
-    client.inject_command("echo 'git status'\n").await.expect("Command failed");
+    client.inject("echo 'git status'").await.expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
-    client.inject_command("echo 'git add .'\n").await.expect("Command failed");
+    client.inject("echo 'git add .'").await.expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
-    client.inject_command("echo 'git commit -m \"test\"'\n")
+    client.inject("echo 'git commit -m \"test\"'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     println!("   Testing docker-like commands");
-    client.inject_command("echo 'docker ps'\n").await.expect("Command failed");
+    client.inject("echo 'docker ps'").await.expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
-    client.inject_command("echo 'docker run ubuntu echo hello'\n")
+    client.inject("echo 'docker run ubuntu echo hello'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     println!("   Testing npm-like commands");
-    client.inject_command("echo 'npm install'\n").await.expect("Command failed");
+    client.inject("echo 'npm install'").await.expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
-    client.inject_command("echo 'npm test'\n").await.expect("Command failed");
+    client.inject("echo 'npm test'").await.expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     println!("✅ Command-line tools test complete");
@@ -251,18 +251,18 @@ async fn test_headless_long_running_commands() {
     // Simulate long-running command with progress updates
     println!("   Starting long-running task simulation");
 
-    client.inject_command("echo 'Starting build process...'\n")
+    client.inject("echo 'Starting build process...'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
 
     for progress in (0..=100).step_by(10) {
-        let cmd = format!("echo 'Progress: {}%'\n", progress);
+        let cmd = format!("echo 'Progress: {}%'", progress);
         client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
         sleep(Duration::from_millis(200)).await;
     }
 
-    client.inject_command("echo 'Build complete!'\n")
+    client.inject("echo 'Build complete!'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(100)).await;
@@ -293,25 +293,25 @@ async fn test_headless_shell_job_control() {
 
     // Simulate background jobs
     println!("   Testing background job simulation");
-    client.inject_command("echo 'sleep 10 &'\n").await.expect("Command failed");
+    client.inject("echo 'sleep 10 &'").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
-    client.inject_command("echo '[1] 12345'\n").await.expect("Command failed");
+    client.inject("echo '[1] 12345'").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     // Check jobs
     println!("   Checking job status");
-    client.inject_command("echo 'jobs'\n").await.expect("Command failed");
+    client.inject("echo 'jobs'").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
-    client.inject_command("echo '[1]+  Running                 sleep 10 &'\n")
+    client.inject("echo '[1]+  Running                 sleep 10 &'")
         .await
         .expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     // Foreground a job
     println!("   Bringing job to foreground");
-    client.inject_command("echo 'fg %1'\n").await.expect("Command failed");
+    client.inject("echo 'fg %1'").await.expect("Command failed");
     sleep(Duration::from_millis(50)).await;
 
     println!("✅ Shell job control test complete");

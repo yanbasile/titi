@@ -106,7 +106,7 @@ async fn test_headless_rapid_pane_lifecycle() {
         client.create_pane(Some(&pane_name)).await.expect("Pane create failed");
 
         // Send a command
-        client.inject_command("echo 'test'\n").await.expect("Command failed");
+        client.inject("echo 'test'").await.expect("Command failed");
 
         // Note: In a real implementation, you'd also test pane destruction
         // For now, we just test creation since panes stay alive
@@ -162,7 +162,7 @@ async fn test_headless_interleaved_operations() {
             client.create_pane(Some(&pane_name)).await.expect("Pane failed");
 
             // Send command to this pane
-            let cmd = format!("echo 'Session {} Pane {}'\n", i, j);
+            let cmd = format!("echo 'Session {} Pane {}'", i, j);
             client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
         }
 
@@ -219,7 +219,7 @@ async fn test_headless_connection_churn() {
             .expect("Pane failed");
 
         // Send one command
-        client.inject_command("echo 'churn test'\n").await.expect("Command failed");
+        client.inject("echo 'churn test'").await.expect("Command failed");
 
         success_count += 1;
 
@@ -270,9 +270,9 @@ async fn test_headless_rapid_reconnection() {
         // Authenticate
         client.authenticate(&token).await.expect("Auth failed");
 
-        // Create session with same name (should reuse or create new)
+        // Create session with unique name for each reconnect
         client
-            .create_session(Some("persistent-session"))
+            .create_session(Some(&format!("reconnect-session-{}", i)))
             .await
             .expect("Session failed");
 
@@ -283,7 +283,7 @@ async fn test_headless_rapid_reconnection() {
             .expect("Pane failed");
 
         // Send command
-        let cmd = format!("echo 'Reconnect {}'\n", i);
+        let cmd = format!("echo 'Reconnect {}'", i);
         client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
 
         success_count += 1;

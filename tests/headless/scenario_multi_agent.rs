@@ -64,12 +64,12 @@ async fn test_headless_producer_consumer_pattern() {
 
         for i in 0..items_to_produce {
             // Produce item
-            let cmd = format!("echo 'Produced item {}'\n", i);
+            let cmd = format!("echo 'Produced item {}'", i);
             client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Produce failed");
 
             // Publish to work queue (simulated via command)
-            let publish_cmd = format!("echo 'WORK_ITEM:{}'\n", i);
-            client.inject_command(&publish_cmd).await.expect("Publish failed");
+            let publish_cmd = format!("echo 'WORK_ITEM:{}'", i);
+            client.inject(&publish_cmd).await.expect("Publish failed");
 
             produced_clone.fetch_add(1, Ordering::Relaxed);
 
@@ -98,7 +98,7 @@ async fn test_headless_producer_consumer_pattern() {
         // Simulate consuming items (in real scenario, would subscribe to queue)
         for i in 0..items_to_produce {
             // Consume item
-            let cmd = format!("echo 'Consumed item {}'\n", i);
+            let cmd = format!("echo 'Consumed item {}'", i);
             client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Consume failed");
 
             consumed_clone.fetch_add(1, Ordering::Relaxed);
@@ -162,7 +162,7 @@ async fn test_headless_pipeline_pattern() {
             println!("   Stage A started");
 
             for i in 0..items {
-                let cmd = format!("echo 'Stage A: Process {}'\n", i);
+                let cmd = format!("echo 'Stage A: Process {}'", i);
                 client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
                 count_clone.fetch_add(1, Ordering::Relaxed);
                 sleep(Duration::from_millis(40)).await;
@@ -192,7 +192,7 @@ async fn test_headless_pipeline_pattern() {
             println!("   Stage B started");
 
             for i in 0..items {
-                let cmd = format!("echo 'Stage B: Transform {}'\n", i);
+                let cmd = format!("echo 'Stage B: Transform {}'", i);
                 client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
                 count_clone.fetch_add(1, Ordering::Relaxed);
                 sleep(Duration::from_millis(40)).await;
@@ -222,7 +222,7 @@ async fn test_headless_pipeline_pattern() {
             println!("   Stage C started");
 
             for i in 0..items {
-                let cmd = format!("echo 'Stage C: Output {}'\n", i);
+                let cmd = format!("echo 'Stage C: Output {}'", i);
                 client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
                 count_clone.fetch_add(1, Ordering::Relaxed);
                 sleep(Duration::from_millis(40)).await;
@@ -282,7 +282,7 @@ async fn test_headless_broadcast_pattern() {
             println!("   Broadcaster started");
 
             for i in 0..messages_to_broadcast {
-                let cmd = format!("echo 'BROADCAST: Message {}'\n", i);
+                let cmd = format!("echo 'BROADCAST: Message {}'", i);
                 client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Broadcast failed");
 
                 println!("   Broadcasted message {}", i);
@@ -319,7 +319,7 @@ async fn test_headless_broadcast_pattern() {
 
             // Simulate receiving broadcast messages
             for i in 0..messages_to_broadcast {
-                let cmd = format!("echo 'Worker {} received message {}'\n", worker_id, i);
+                let cmd = format!("echo 'Worker {} received message {}'", worker_id, i);
                 client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
                 received_clone.fetch_add(1, Ordering::Relaxed);
                 sleep(Duration::from_millis(120)).await;
@@ -396,7 +396,7 @@ async fn test_headless_collaborative_task() {
             let end_item = start_item + work_per_agent;
 
             for item in start_item..end_item {
-                let cmd = format!("echo 'Agent {} processing item {}'\n", agent_id, item);
+                let cmd = format!("echo 'Agent {} processing item {}'", agent_id, item);
                 client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Command failed");
                 completed_clone.fetch_add(1, Ordering::Relaxed);
                 sleep(Duration::from_millis(50)).await;

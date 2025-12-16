@@ -72,7 +72,7 @@ async fn test_headless_10_concurrent_terminals() {
 
             // Each terminal sends commands
             for i in 0..commands_per_terminal {
-                let cmd = format!("echo 'Terminal {} Command {}'\n", term_id, i);
+                let cmd = format!("echo 'Terminal {} Command {}'", term_id, i);
                 client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Inject failed");
             }
 
@@ -155,7 +155,7 @@ async fn test_headless_50_concurrent_terminals() {
             }
 
             for i in 0..commands_per_terminal {
-                let cmd = format!("echo 'Terminal {} Cmd {}'\n", term_id, i);
+                let cmd = format!("echo 'Terminal {} Cmd {}'", term_id, i);
                 if client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.is_err() {
                     eprintln!("Terminal {} command {} failed", term_id, i);
                     return;
@@ -246,7 +246,7 @@ async fn test_headless_staggered_lifecycle() {
             let commands = 5 + term_id; // Variable workload
 
             for i in 0..commands {
-                let cmd = format!("echo 'Stagger {} Cmd {}'\n", term_id, i);
+                let cmd = format!("echo 'Stagger {} Cmd {}'", term_id, i);
                 client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Inject failed");
                 sleep(Duration::from_millis(20)).await;
             }
@@ -310,7 +310,7 @@ async fn test_headless_mixed_activity_levels() {
             client.create_pane(Some(&format!("heavy-pane-{}", term_id))).await.expect("Pane failed");
 
             for i in 0..100 {
-                let cmd = format!("echo 'Heavy {} Cmd {}'\n", term_id, i);
+                let cmd = format!("echo 'Heavy {} Cmd {}'", term_id, i);
                 client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Inject failed");
             }
 
@@ -333,7 +333,7 @@ async fn test_headless_mixed_activity_levels() {
             client.create_pane(Some(&format!("light-pane-{}", term_id))).await.expect("Pane failed");
 
             for i in 0..5 {
-                let cmd = format!("echo 'Light {} Cmd {}'\n", term_id, i);
+                let cmd = format!("echo 'Light {} Cmd {}'", term_id, i);
                 client.inject_command(&client.session_id().to_string(), &client.pane_id().to_string(), &cmd).await.expect("Inject failed");
             }
 
