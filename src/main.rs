@@ -374,19 +374,33 @@ impl ApplicationHandler for App {
                     self.window = Some(window.clone());
 
                     // Initialize renderer asynchronously
+                    log::info!("Initializing GPU renderer...");
                     let future = self.initialize_renderer();
-                    pollster::block_on(future).expect("Failed to initialize renderer");
+                    match pollster::block_on(future) {
+                        Ok(_) => {
+                            log::info!("Renderer initialized successfully");
 
-                    // Create initial pane
-                    if let Some(renderer) = &self.renderer {
-                        let (cell_width, cell_height) = renderer.cell_dimensions();
-                        let window_size = window.inner_size();
-                        let cols = (window_size.width as f32 / cell_width) as u16;
-                        let rows = (window_size.height as f32 / cell_height) as u16;
+                            // Create initial pane
+                            if let Some(renderer) = &self.renderer {
+                                let (cell_width, cell_height) = renderer.cell_dimensions();
+                                let window_size = window.inner_size();
+                                let cols = (window_size.width as f32 / cell_width) as u16;
+                                let rows = (window_size.height as f32 / cell_height) as u16;
 
-                        self.pane_manager
-                            .create_pane(cols.max(80), rows.max(24))
-                            .expect("Failed to create initial pane");
+                                match self.pane_manager.create_pane(cols.max(80), rows.max(24)) {
+                                    Ok(_) => log::info!("Initial pane created successfully"),
+                                    Err(e) => {
+                                        log::error!("Failed to create initial pane: {}", e);
+                                        event_loop.exit();
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            log::error!("Failed to initialize renderer: {}", e);
+                            log::error!("Try updating your GPU drivers or check if Vulkan is supported");
+                            event_loop.exit();
+                        }
                     }
                 }
                 Err(e) => {
@@ -440,6 +454,11 @@ impl ApplicationHandler for App {
                 }
             }
             WindowEvent::RedrawRequested => {
+                // Skip rendering if renderer is not initialized yet
+                if self.renderer.is_none() {
+                    return;
+                }
+
                 // Poll terminals for output
                 self.poll_terminals();
 
@@ -447,29 +466,30 @@ impl ApplicationHandler for App {
                 if let Some(renderer) = &mut self.renderer {
                     if let Err(e) = renderer.render_panes(&self.pane_manager) {
                         log::error!("Render error: {}", e);
+                        // Don't exit on render errors - they might be transient
+                        // (e.g., window minimized, GPU context lost temporarily)
                     }
-                }
-
-                // Request next frame
-                if let Some(window) = &self.window {
-                    window.request_redraw();
                 }
             }
             _ => {}
         }
     }
 
-    fn about_to_wait(&mut self, _event_loop: &ActiveEventLoop) {
-        // Limit frame rate to ~60 FPS
+    fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        // Limit frame rate to ~60 FPS using WaitUntil instead of sleep
         let now = Instant::now();
         let elapsed = now - self.last_frame;
-        if elapsed < Duration::from_millis(16) {
-            std::thread::sleep(Duration::from_millis(16) - elapsed);
-        }
-        self.last_frame = Instant::now();
+        let target_frame_time = Duration::from_millis(16); // ~60 FPS
 
-        if let Some(window) = &self.window {
-            window.request_redraw();
+        if elapsed >= target_frame_time {
+            self.last_frame = now;
+            if let Some(window) = &self.window {
+                window.request_redraw();
+            }
+        } else {
+            // Wait until next frame is due instead of blocking
+            let wait_until = self.last_frame + target_frame_time;
+            event_loop.set_control_flow(ControlFlow::WaitUntil(wait_until));
         }
     }
 }
@@ -491,7 +511,8 @@ fn main() -> anyhow::Result<()> {
     let config = Config::load().unwrap_or_default();
 
     let event_loop = EventLoop::new()?;
-    event_loop.set_control_flow(ControlFlow::Poll);
+    // Use Wait mode instead of Poll to avoid busy-waiting
+    event_loop.set_control_flow(ControlFlow::Wait);
 
     let mut app = App::new(config);
     event_loop.run_app(&mut app)?;
