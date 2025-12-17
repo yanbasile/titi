@@ -74,7 +74,12 @@ impl Pty {
     fn get_shell() -> (String, Vec<String>) {
         // Try to get shell from environment
         if let Ok(shell) = std::env::var("SHELL") {
-            return (shell, vec![]);
+            // Security: Validate the shell path before using it
+            if Self::is_valid_shell(&shell) {
+                return (shell, vec![]);
+            }
+            // If invalid, fall through to defaults
+            log::warn!("Shell from $SHELL '{}' is not valid, using default", shell);
         }
 
         // Default to common shells
@@ -96,6 +101,79 @@ impl Pty {
         #[cfg(not(any(unix, windows)))]
         {
             ("sh".to_string(), vec![])
+        }
+    }
+
+    /// Validate a shell path for security
+    ///
+    /// Checks that the shell:
+    /// 1. Exists as a file
+    /// 2. Is an absolute path
+    /// 3. Matches known safe shell patterns
+    fn is_valid_shell(shell: &str) -> bool {
+        use std::path::Path;
+
+        let path = Path::new(shell);
+
+        // Must be an absolute path
+        if !path.is_absolute() {
+            return false;
+        }
+
+        // Must exist as a file
+        if !path.exists() || !path.is_file() {
+            return false;
+        }
+
+        // On Unix, validate against known safe shells
+        #[cfg(unix)]
+        {
+            // Check if shell is in /etc/shells (if the file exists)
+            if let Ok(shells_content) = std::fs::read_to_string("/etc/shells") {
+                if shells_content.lines().any(|line| {
+                    let line = line.trim();
+                    !line.is_empty() && !line.starts_with('#') && line == shell
+                }) {
+                    return true;
+                }
+            }
+
+            // Fallback: Check against common known shells
+            let known_shells = [
+                "/bin/sh", "/bin/bash", "/bin/zsh", "/bin/dash", "/bin/ksh",
+                "/bin/fish", "/bin/tcsh", "/bin/csh",
+                "/usr/bin/sh", "/usr/bin/bash", "/usr/bin/zsh", "/usr/bin/dash",
+                "/usr/bin/ksh", "/usr/bin/fish", "/usr/bin/tcsh", "/usr/bin/csh",
+            ];
+
+            if known_shells.contains(&shell) {
+                return true;
+            }
+
+            // Additional validation: Check if the shell name looks reasonable
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                let valid_shell_names = ["sh", "bash", "zsh", "dash", "ksh", "fish", "tcsh", "csh"];
+                if valid_shell_names.contains(&name) {
+                    return true;
+                }
+            }
+
+            false
+        }
+
+        #[cfg(windows)]
+        {
+            // On Windows, accept common shells
+            let lower_shell = shell.to_lowercase();
+            lower_shell.contains("powershell")
+                || lower_shell.contains("cmd.exe")
+                || lower_shell.contains("pwsh")
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        {
+            // On other platforms, just check existence (already done above)
+            true
         }
     }
 }

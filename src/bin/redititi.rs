@@ -66,7 +66,15 @@ async fn main() {
     log::info!("═══════════════════════════════════════════════");
     log::info!("Port:       {}", port);
     log::info!("Token file: {:?}", auth.token_path());
-    log::info!("Token:      {}", auth.token());
+
+    // Security: Mask token to prevent exposure in logs (show only first/last 4 chars)
+    let token = auth.token();
+    let masked_token = if token.len() >= 8 {
+        format!("{}...{}", &token[..4], &token[token.len()-4..])
+    } else {
+        "****".to_string()
+    };
+    log::info!("Token:      {} (masked for security)", masked_token);
     log::info!("");
     log::info!("Server starting...");
 

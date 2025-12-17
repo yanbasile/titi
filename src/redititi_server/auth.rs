@@ -6,6 +6,7 @@ use rand::Rng;
 use std::fs;
 use std::io;
 use std::path::PathBuf;
+use subtle::ConstantTimeEq;
 
 #[derive(Debug)]
 pub enum AuthError {
@@ -83,8 +84,11 @@ impl TokenAuth {
     }
 
     /// Validate a token against the stored token
+    ///
+    /// Uses constant-time comparison to prevent timing attacks
     pub fn validate(&self, token: &str) -> bool {
-        self.token == token
+        // Use constant-time comparison to prevent timing side-channel attacks
+        self.token.as_bytes().ct_eq(token.as_bytes()).into()
     }
 
     /// Get the authentication token

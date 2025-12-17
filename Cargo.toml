@@ -37,6 +37,7 @@ clap = { version = "4.5", features = ["derive"] }
 # Server dependencies
 tokio = { version = "1.0", features = ["full"] }
 rand = "0.8"
+subtle = "2.6"  # Constant-time comparison for security
 
 [[bin]]
 name = "redititi"
