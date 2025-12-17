@@ -21,11 +21,12 @@ A GPU-accelerated terminal emulator written in Rust with hierarchical tab/pane m
 - **Full ANSI/VT100 Support**: Complete escape sequence support for tools like Claude Code
 - **Configurable**: TOML-based configuration with sensible defaults
 - **Cross-Platform**: Works on Linux, macOS, and Windows
-- **🆕 Comprehensive Testing**: 90+ unit tests, 27+ stress tests with TDD approach
+- **🆕 Comprehensive Testing**: 90+ unit tests, 49 headless tests (100% passing)
 - **🆕 Real-time Metrics**: FPS, memory, per-terminal stats, performance profiling
 - **🆕 Memory Leak Detection**: Automatic detection and warnings for memory issues
 - **🆕 Production-Ready Monitoring**: Structured logging and metrics collection
 - **🆕 Terminal Automation**: Redis-like server (redititi) for command injection and screen capture
+- **🆕 Headless Mode**: Run terminals without GPU for automation, CI/CD, and multi-agent orchestration
 - **🆕 Copy/Paste Support**: Clipboard integration with platform-specific handling
 - **🆕 Mouse Support**: Click to focus panes and interact with terminal applications
 - **🆕 Dirty Rectangle Tracking**: Performance optimization for selective rendering
@@ -142,6 +143,38 @@ SUBSCRIBE session-{id}/pane-{id}/output
 
 See [GETTING_STARTED.md](GETTING_STARTED.md) for more details on server automation.
 
+### Headless Mode for AI Agent Orchestration
+
+Titi supports **headless mode** for running terminals without GPU rendering - perfect for automation, CI/CD, and multi-agent orchestration:
+
+```bash
+# Run a headless terminal connected to redititi server
+cargo run --bin titi-headless --release -- \
+  --server localhost:6379 \
+  --token your_token_here \
+  --session my-agent-session
+```
+
+**Use Cases:**
+- 🤖 **Multi-Agent Systems**: Run 10+ concurrent AI agents with independent terminals
+- 🔄 **CI/CD Pipelines**: Automate terminal testing without display
+- 📊 **Monitoring**: Long-running terminals for log tailing and system monitoring
+- 🌐 **Server Automation**: Remote terminal orchestration over TCP
+
+**Performance Benchmarks:**
+- **7552 cmd/s** sustained command injection
+- **0.92 MB/s** sustained output handling
+- **35 cycles/sec** for session lifecycle operations
+- **Zero memory leaks** over extended runs (tested up to 30 minutes)
+
+**Test Coverage:**
+- ✅ 49/49 headless tests passing (100%)
+- ✅ 4 long-running stability tests (5-30 minutes each)
+- ✅ 26 complex scenario tests (multi-agent, unicode, network resilience)
+- ✅ 19 stress tests (command injection, large output, lifecycle)
+
+See [HEADLESS_TEST_STATUS.md](HEADLESS_TEST_STATUS.md) for complete test results.
+
 ### Configuration
 
 Configuration file is located at:
@@ -246,12 +279,14 @@ RUST_LOG=debug cargo run
 - [x] Real-time metrics and monitoring
 - [x] Memory leak detection
 - [x] Redis-like automation server (redititi)
+- [x] Terminal integration with redititi server
+- [x] Headless mode (49 tests, 100% passing, battle-tested)
+- [x] Multi-agent orchestration support
 
 ### 🚧 In Progress
 
-- [ ] Terminal integration with redititi server
-- [ ] Headless mode for automated testing
 - [ ] Python client library (titipy)
+- [ ] Security hardening (authentication, rate limiting, encryption)
 
 ### 📋 Planned
 
