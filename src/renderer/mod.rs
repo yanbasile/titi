@@ -21,8 +21,9 @@ impl Renderer {
     pub async fn new(
         window: Arc<winit::window::Window>,
         config: &Config,
+        force_cpu: bool,
     ) -> anyhow::Result<Self> {
-        let gpu_state = GpuState::new(window).await?;
+        let gpu_state = GpuState::new(window, force_cpu).await?;
         let text_renderer = TextRenderer::new(&gpu_state, config)?;
 
         Ok(Self {

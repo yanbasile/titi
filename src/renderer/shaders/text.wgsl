@@ -39,6 +39,13 @@ var t_sampler: sampler;
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    // Check if this is a solid color quad (tex_coords at origin means no texture)
+    // For background colors and borders, we use solid color without texture sampling
+    if (in.tex_coords.x == 0.0 && in.tex_coords.y == 0.0) {
+        return in.color;
+    }
+
+    // For text glyphs, sample the alpha from the glyph atlas
     let alpha = textureSample(t_texture, t_sampler, in.tex_coords).r;
     return vec4<f32>(in.color.rgb, in.color.a * alpha);
 }

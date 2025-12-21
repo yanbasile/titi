@@ -10,24 +10,57 @@ pub struct GpuState {
 }
 
 impl GpuState {
-    pub async fn new(window: Arc<Window>) -> anyhow::Result<Self> {
+    pub async fn new(window: Arc<Window>, force_cpu: bool) -> anyhow::Result<Self> {
         let size = window.inner_size();
 
+        // Include all backends for maximum compatibility (including software/CPU fallback)
         let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
-            backends: wgpu::Backends::PRIMARY,
+            backends: wgpu::Backends::all(),
             ..Default::default()
         });
 
         let surface = instance.create_surface(window)?;
 
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::HighPerformance,
-                compatible_surface: Some(&surface),
-                force_fallback_adapter: false,
-            })
-            .await
-            .ok_or_else(|| anyhow::anyhow!("Failed to find suitable adapter"))?;
+        let adapter = if force_cpu {
+            // User explicitly requested CPU/software rendering
+            log::info!("CPU rendering forced via --cpu flag");
+            instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::LowPower,
+                    compatible_surface: Some(&surface),
+                    force_fallback_adapter: true, // Force CPU/software renderer
+                })
+                .await
+                .ok_or_else(|| anyhow::anyhow!("Failed to find software/CPU adapter"))?
+        } else {
+            // First try to get a hardware GPU adapter
+            let adapter = instance
+                .request_adapter(&wgpu::RequestAdapterOptions {
+                    power_preference: wgpu::PowerPreference::LowPower,
+                    compatible_surface: Some(&surface),
+                    force_fallback_adapter: false,
+                })
+                .await;
+
+            // If no hardware adapter, fall back to software renderer (CPU)
+            match adapter {
+                Some(adapter) => adapter,
+                None => {
+                    log::warn!("No GPU adapter found, falling back to software renderer (CPU)");
+                    instance
+                        .request_adapter(&wgpu::RequestAdapterOptions {
+                            power_preference: wgpu::PowerPreference::LowPower,
+                            compatible_surface: Some(&surface),
+                            force_fallback_adapter: true,
+                        })
+                        .await
+                        .ok_or_else(|| anyhow::anyhow!("Failed to find any suitable adapter (GPU or CPU)"))?
+                }
+            }
+        };
+
+        let adapter_info = adapter.get_info();
+        log::info!("Using adapter: {} ({:?})", adapter_info.name, adapter_info.backend);
 
         let (device, queue) = adapter
             .request_device(

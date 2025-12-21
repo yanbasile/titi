@@ -76,7 +76,7 @@ impl Grid {
             scroll_bottom: rows - 1,
             saved_cursor: (0, 0),
             scrollback: VecDeque::new(),
-            max_scrollback: 10000, // Store up to 10000 lines
+            max_scrollback: 1000, // Store up to 1000 lines (reasonable default)
             scroll_offset: 0,
             dirty_cells: HashSet::new(),
             all_dirty: true, // Start with full redraw

@@ -12,13 +12,17 @@ use winit::{
 };
 
 /// Command-line arguments
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(name = "titi")]
 #[command(about = "A GPU-accelerated terminal emulator", long_about = None)]
 struct Args {
     /// Run in headless mode (no GUI)
     #[arg(long)]
     headless: bool,
+
+    /// Force CPU/software rendering (no GPU)
+    #[arg(long)]
+    cpu: bool,
 
     /// Server address for headless mode (e.g., localhost:6379)
     #[arg(long)]
@@ -54,10 +58,11 @@ struct App {
     last_frame: Instant,
     cursor_position: (f64, f64),
     clipboard: Option<Clipboard>,
+    force_cpu: bool,
 }
 
 impl App {
-    fn new(config: Config) -> Self {
+    fn new(config: Config, force_cpu: bool) -> Self {
         let clipboard = Clipboard::new().ok();
         Self {
             window: None,
@@ -68,12 +73,13 @@ impl App {
             last_frame: Instant::now(),
             cursor_position: (0.0, 0.0),
             clipboard,
+            force_cpu,
         }
     }
 
     async fn initialize_renderer(&mut self) -> anyhow::Result<()> {
         if let Some(window) = &self.window {
-            let renderer = Renderer::new(window.clone(), &self.config).await?;
+            let renderer = Renderer::new(window.clone(), &self.config, self.force_cpu).await?;
             self.renderer = Some(renderer);
         }
         Ok(())
@@ -316,6 +322,7 @@ impl App {
             if let Some(pane) = self.pane_manager.get_pane_mut(pane_id) {
                 match pane.terminal.read() {
                     Ok(Some(data)) => {
+                        log::debug!("PTY output: {} bytes", data.len());
                         pane.terminal.process_output(&data);
                     }
                     Ok(None) => {}
@@ -466,9 +473,12 @@ impl ApplicationHandler for App {
                 if let Some(renderer) = &mut self.renderer {
                     if let Err(e) = renderer.render_panes(&self.pane_manager) {
                         log::error!("Render error: {}", e);
-                        // Don't exit on render errors - they might be transient
-                        // (e.g., window minimized, GPU context lost temporarily)
                     }
+                }
+
+                // Request another redraw to keep the render loop going
+                if let Some(window) = &self.window {
+                    window.request_redraw();
                 }
             }
             _ => {}
@@ -476,7 +486,11 @@ impl ApplicationHandler for App {
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
-        // Limit frame rate to ~60 FPS using WaitUntil instead of sleep
+        // Always request redraw - the terminal needs continuous updates
+        // Use Poll mode for responsive terminal emulation
+        event_loop.set_control_flow(ControlFlow::Poll);
+
+        // Limit frame rate to ~60 FPS
         let now = Instant::now();
         let elapsed = now - self.last_frame;
         let target_frame_time = Duration::from_millis(16); // ~60 FPS
@@ -486,10 +500,6 @@ impl ApplicationHandler for App {
             if let Some(window) = &self.window {
                 window.request_redraw();
             }
-        } else {
-            // Wait until next frame is due instead of blocking
-            let wait_until = self.last_frame + target_frame_time;
-            event_loop.set_control_flow(ControlFlow::WaitUntil(wait_until));
         }
     }
 }
@@ -507,14 +517,17 @@ fn main() -> anyhow::Result<()> {
 
     // Normal GUI mode
     log::info!("Starting Titi Terminal Emulator");
+    if args.cpu {
+        log::info!("Forcing CPU/software rendering (--cpu flag)");
+    }
 
     let config = Config::load().unwrap_or_default();
 
     let event_loop = EventLoop::new()?;
-    // Use Wait mode instead of Poll to avoid busy-waiting
-    event_loop.set_control_flow(ControlFlow::Wait);
+    // Use Poll mode for responsive terminal emulation
+    event_loop.set_control_flow(ControlFlow::Poll);
 
-    let mut app = App::new(config);
+    let mut app = App::new(config, args.cpu);
     event_loop.run_app(&mut app)?;
 
     Ok(())

@@ -2,19 +2,15 @@ use super::{GpuState, glyph_atlas::GlyphAtlas};
 use crate::terminal::{Color, Grid};
 use crate::renderer::vertex::{Vertex, Uniforms};
 use crate::Config;
-use cosmic_text::{Attrs, Buffer, FontSystem, Metrics, SwashCache};
 use std::sync::{Arc, Mutex};
 use wgpu::util::DeviceExt;
 
 pub struct TextRenderer {
-    _font_system: FontSystem,
-    _swash_cache: SwashCache,
     cell_width: f32,
     cell_height: f32,
-    _font_size: f32,
     glyph_atlas: GlyphAtlas,
     render_pipeline: wgpu::RenderPipeline,
-    _uniform_buffer: wgpu::Buffer,
+    uniform_buffer: wgpu::Buffer,
     uniform_bind_group: wgpu::BindGroup,
     texture_bind_group: wgpu::BindGroup,
     vertex_buffer: wgpu::Buffer,
@@ -24,22 +20,13 @@ pub struct TextRenderer {
 
 impl TextRenderer {
     pub fn new(gpu_state: &GpuState, config: &Config) -> anyhow::Result<Self> {
-        let mut font_system = FontSystem::new();
-        let swash_cache = SwashCache::new();
-
         let font_size = config.font.size;
 
-        // Measure cell dimensions using a monospace character
-        let metrics = Metrics::new(font_size, font_size * 1.2);
-        let mut buffer = Buffer::new(&mut font_system, metrics);
-        buffer.set_size(&mut font_system, Some(100.0), Some(100.0));
-        buffer.set_text(&mut font_system, "M", Attrs::new(), cosmic_text::Shaping::Advanced);
-
-        // Calculate cell dimensions
-        let cell_width = font_size * 0.6; // Approximation for monospace
+        // Calculate cell dimensions (approximation for monospace)
+        let cell_width = font_size * 0.6;
         let cell_height = font_size * 1.2;
 
-        // Create glyph atlas
+        // Create glyph atlas (contains the only FontSystem instance)
         let glyph_atlas = GlyphAtlas::new(&gpu_state.device, font_size);
 
         // Create shader module
@@ -203,9 +190,12 @@ impl TextRenderer {
                     cache: None,
                 });
 
-        // Create initial vertex and index buffers (will be resized as needed)
-        let max_vertices = 10000; // Initial capacity
-        let max_indices = 15000;
+        // Create initial vertex and index buffers
+        // 80x24 terminal = 1920 cells max, each cell needs 4 vertices (quad)
+        // With background + foreground = 2 quads per cell = 8 vertices max
+        // 1920 * 8 = 15360, round up to 16384 for safety
+        let max_vertices = 4096; // Enough for typical 80x24 terminal
+        let max_indices = 6144;  // 1.5x vertices for index buffer
 
         let vertex_buffer = gpu_state.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Vertex Buffer"),
@@ -222,14 +212,11 @@ impl TextRenderer {
         });
 
         Ok(Self {
-            _font_system: font_system,
-            _swash_cache: swash_cache,
             cell_width,
             cell_height,
-            _font_size: font_size,
             glyph_atlas,
             render_pipeline,
-            _uniform_buffer: uniform_buffer,
+            uniform_buffer,
             uniform_bind_group,
             texture_bind_group,
             vertex_buffer,
@@ -356,8 +343,19 @@ impl TextRenderer {
 
         // If no vertices to render, early return
         if vertices.is_empty() {
+            log::trace!("No vertices to render (grid empty or all spaces)");
             return Ok(());
         }
+
+        log::trace!("Rendering {} vertices, {} indices", vertices.len(), indices.len());
+
+        // Update uniforms with current screen size
+        let uniforms = Uniforms::ortho(gpu_state.size.width as f32, gpu_state.size.height as f32);
+        gpu_state.queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[uniforms]),
+        );
 
         // Update vertex and index buffers
         gpu_state.queue.write_buffer(
@@ -419,6 +417,7 @@ impl TextRenderer {
         // Generate vertices and indices for all visible characters
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
+        let mut non_empty_count = 0;
 
         for row in 0..rows {
             for col in 0..cols {
@@ -427,6 +426,7 @@ impl TextRenderer {
                     if cell.c == ' ' || cell.c == '\0' {
                         continue;
                     }
+                    non_empty_count += 1;
 
                     // Get or cache the glyph
                     let glyph_info = self.glyph_atlas.get_or_cache_glyph(
@@ -520,10 +520,25 @@ impl TextRenderer {
 
         drop(grid);
 
+        // Log grid state periodically (every second at 60fps)
+        static FRAME_COUNT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+        let frame = FRAME_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        if frame < 10 || frame % 60 == 0 {
+            log::info!("Render frame {}: grid {}x{}, {} non-empty cells, {} vertices", frame, cols, rows, non_empty_count, vertices.len());
+        }
+
         // If no vertices to render, early return
         if vertices.is_empty() {
             return Ok(());
         }
+
+        // Update uniforms with viewport size for correct coordinate transformation
+        let uniforms = Uniforms::ortho(viewport_width as f32, viewport_height as f32);
+        gpu_state.queue.write_buffer(
+            &self.uniform_buffer,
+            0,
+            bytemuck::cast_slice(&[uniforms]),
+        );
 
         // Update vertex and index buffers
         gpu_state.queue.write_buffer(

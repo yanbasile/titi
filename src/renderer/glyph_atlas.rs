@@ -33,8 +33,10 @@ pub struct GlyphAtlas {
 
 impl GlyphAtlas {
     pub fn new(device: &Device, font_size: f32) -> Self {
-        let atlas_width = 2048;
-        let atlas_height = 2048;
+        // 512x512 is enough for ASCII + common Unicode glyphs at typical terminal sizes
+        // This uses only 256KB instead of 4MB (16x smaller)
+        let atlas_width = 512;
+        let atlas_height = 512;
 
         let texture = device.create_texture(&TextureDescriptor {
             label: Some("Glyph Atlas"),
@@ -51,6 +53,42 @@ impl GlyphAtlas {
             view_formats: &[],
         });
 
+        // Create a minimal font system - only load monospace fonts
+        // This dramatically reduces memory usage compared to loading all fonts
+        let locale = sys_locale::get_locale().unwrap_or_else(|| "en-US".to_string());
+        let mut db = cosmic_text::fontdb::Database::new();
+
+        // Try to load only specific monospace fonts instead of all system fonts
+        // Common monospace font paths on Linux
+        let mono_font_paths = [
+            "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+            "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+            "/usr/share/fonts/TTF/DejaVuSansMono.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSansMono.ttf",
+            "/usr/share/fonts/truetype/freefont/FreeMono.ttf",
+            "/usr/share/fonts/noto/NotoSansMono-Regular.ttf",
+        ];
+
+        let mut loaded_font = false;
+        for path in &mono_font_paths {
+            if std::path::Path::new(path).exists() {
+                if let Ok(data) = std::fs::read(path) {
+                    db.load_font_data(data);
+                    loaded_font = true;
+                    log::info!("Loaded monospace font: {}", path);
+                    break;
+                }
+            }
+        }
+
+        // Fallback: load system fonts if no specific font found
+        if !loaded_font {
+            log::warn!("No preferred monospace font found, loading system fonts");
+            db.load_system_fonts();
+        }
+
+        let font_system = FontSystem::new_with_locale_and_db(locale, db);
+
         Self {
             texture,
             atlas_width,
@@ -58,8 +96,8 @@ impl GlyphAtlas {
             current_x: 0,
             current_y: 0,
             row_height: 0,
-            glyph_cache: HashMap::new(),
-            font_system: FontSystem::new(),
+            glyph_cache: HashMap::with_capacity(256), // Pre-allocate for ASCII
+            font_system,
             swash_cache: SwashCache::new(),
             font_size,
         }

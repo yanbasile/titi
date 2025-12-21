@@ -18,6 +18,7 @@ portable-pty = "0.8"
 
 # Font rendering
 cosmic-text = "0.12"
+sys-locale = "0.3"
 
 # Utilities
 anyhow = "1.0"

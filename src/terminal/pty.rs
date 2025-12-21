@@ -1,8 +1,9 @@
-use portable_pty::{native_pty_system, CommandBuilder, PtyPair, PtySize};
+use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize};
 use std::io::{Read, Write};
 
 pub struct Pty {
     pair: PtyPair,
+    child: Box<dyn Child + Send + Sync>,
     reader: Box<dyn Read + Send>,
     writer: Box<dyn Write + Send>,
 }
@@ -27,13 +28,14 @@ impl Pty {
             cmd.arg(arg);
         }
 
-        pair.slave.spawn_command(cmd)?;
+        let child = pair.slave.spawn_command(cmd)?;
 
         let reader = pair.master.try_clone_reader()?;
         let writer = pair.master.take_writer()?;
 
         Ok(Self {
             pair,
+            child,
             reader,
             writer,
         })
@@ -102,6 +104,16 @@ impl Pty {
         {
             ("sh".to_string(), vec![])
         }
+    }
+
+    /// Kill the child process gracefully
+    pub fn kill(&mut self) {
+        // Try to kill the child process
+        if let Err(e) = self.child.kill() {
+            log::debug!("Failed to kill child process (may have already exited): {}", e);
+        }
+        // Wait for it to exit to avoid zombies
+        let _ = self.child.wait();
     }
 
     /// Validate a shell path for security
@@ -175,5 +187,11 @@ impl Pty {
             // On other platforms, just check existence (already done above)
             true
         }
+    }
+}
+
+impl Drop for Pty {
+    fn drop(&mut self) {
+        self.kill();
     }
 }

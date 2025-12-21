@@ -21,11 +21,15 @@ impl TerminalParser {
     }
 
     pub fn parse(&mut self, data: &[u8]) {
+        log::debug!("Parser: processing {} bytes, contains ESC: {}", data.len(), data.contains(&b'\x1b'));
+
         // Fast path: if data has no escape sequences, process as plain text
         // This dramatically improves throughput for large file output (cat, tail, etc.)
         if !data.contains(&b'\x1b') {
             // Plain text - no ANSI codes, use optimized bulk processing
             if let Ok(text) = std::str::from_utf8(data) {
+                log::debug!("Parser fast path: plain text '{}' ({} chars)",
+                    text.chars().take(50).collect::<String>().escape_debug(), text.len());
                 let mut grid = self.grid.lock().unwrap();
 
                 // Split by newlines and process in bulk
@@ -55,6 +59,7 @@ impl TerminalParser {
         }
 
         // Slow path: has escape sequences, use full ANSI parser
+        log::debug!("Parser slow path: ANSI parsing {} bytes", data.len());
         for byte in data {
             self.vte_parser.advance(&mut self.performer, *byte);
         }
@@ -68,6 +73,8 @@ struct TerminalPerformer {
 impl Perform for TerminalPerformer {
     fn print(&mut self, c: char) {
         let mut grid = self.grid.lock().unwrap();
+        let (cx, cy) = grid.cursor_pos();
+        log::trace!("Parser print: '{}' at ({}, {})", c.escape_debug(), cx, cy);
         grid.put_char(c);
     }
 
